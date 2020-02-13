@@ -1,0 +1,24 @@
+[package]
+name = "mnlc_simulations"
+version = "0.1.0"
+authors = ["Maxime"]
+edition = "2018"
+description = "Simulation of MNL LDPC codes."
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+believer =  {version = "0.1", path = "/home/nouey/Projects/simul/believer" }
+rand = "0.7.2"
+itertools = "0.8.0"
+rayon = "1.2"
+libc = "0.2.0"
+csv = "1.1"
+criterion = "0.3"
+gcd = "1.2.0"
+workerpool = "1.2"
+
+
+[[bench]]
+path = "/home/nouey/Projects/simul/mnlc_simulations/benches/benches.rs"
+name = "my_benchmark"
+harness = false

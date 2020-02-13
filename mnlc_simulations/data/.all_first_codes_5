@@ -1,0 +1,45 @@
+5,4,prime
+9,2,prime
+10,4,not prime
+12,2,not prime
+14,3,prime
+15,6,not prime
+15,4,prime
+15,2,prime
+17,8,prime
+18,2,not prime
+20,4,not prime
+21,5,prime
+21,11,prime
+21,3,not prime
+21,2,prime
+24,2,not prime
+25,4,prime
+27,2,prime
+28,3,prime
+30,6,not prime
+30,2,not prime
+30,4,not prime
+31,5,prime
+33,2,prime
+34,8,not prime
+35,3,prime
+35,7,not prime
+35,4,prime
+36,2,not prime
+39,2,prime
+40,4,not prime
+42,5,prime
+42,2,not prime
+42,3,not prime
+42,6,not prime
+42,7,not prime
+42,13,prime
+42,11,prime
+45,2,prime
+45,6,not prime
+45,4,prime
+48,2,not prime
+49,3,prime
+50,4,not prime
+51,2,prime
