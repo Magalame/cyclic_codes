@@ -49,24 +49,24 @@ char** factorize(char* poly_str, int* length){
 
 void mul_array(nmod_poly_t  g, nmod_poly_struct** fac_to_mul, int nb_fac){
 
-    g = fac_to_mul[0]; // we can just copy the first element
+    nmod_poly_set(g, fac_to_mul[0]);
 
-    nmod_poly_t  tmp;
-    nmod_poly_init(tmp,2);
+    // nmod_poly_t  tmp;
+    // nmod_poly_init(tmp,2);
 
     for (int i = 1; i < nb_fac; i++){
-        nmod_poly_mul_classical(tmp,  g, fac_to_mul[i]);
-        nmod_poly_set(g, tmp);
+        nmod_poly_mul_classical(g,  g, fac_to_mul[i]);
+        //nmod_poly_set(g, tmp);
     }
 
-    nmod_poly_clear(tmp);
+    // nmod_poly_clear(tmp);
 
 }
 
 //https://www.geeksforgeeks.org/iterating-over-all-possible-combinations-in-an-array-using-bits/
-void find_gs(nmod_poly_struct** factors, int nb_of_facs, nmod_poly_struct** gs, int* nb_of_gs, int target_k){
+void find_gs(nmod_poly_struct** factors, int nb_of_facs, nmod_poly_struct** gs, int* nb_of_gs_ptr, int target_k){
 
-    
+    int nb_of_gs = 0;
 
     int range = (1 << nb_of_facs) - 1; 
   
@@ -103,6 +103,7 @@ void find_gs(nmod_poly_struct** factors, int nb_of_facs, nmod_poly_struct** gs, 
 
         } 
 
+
   
         // If sum is found, get the g that comes out of it
         if (sum == target_k){
@@ -111,6 +112,7 @@ void find_gs(nmod_poly_struct** factors, int nb_of_facs, nmod_poly_struct** gs, 
 
             int x = 0, y = i;
             int i_mul = 0;
+
 
             while (y > 0) { 
   
@@ -126,15 +128,35 @@ void find_gs(nmod_poly_struct** factors, int nb_of_facs, nmod_poly_struct** gs, 
 
             }
 
-            nmod_poly_t  g;
+            nmod_poly_struct* g = malloc(sizeof(nmod_poly_struct));
+
+            nmod_poly_init(g,2);
 
             mul_array(g, fac_to_mul, nb_fac_loaded);
 
-            gs[*nb_of_gs] = g;
+            int found = 0;
 
-            *nb_of_gs++;
+            for (int i = 0; i < nb_of_gs; i++){
 
-            if (*nb_of_gs >= MAX_G_PER_N) {
+                if (nmod_poly_equal(g, gs[i])){
+                    found = 1;
+                    free(g);
+                }
+
+            }
+
+            if (found == 0) {
+
+                gs[nb_of_gs] = g;
+
+                nb_of_gs++;
+                *nb_of_gs_ptr = nb_of_gs;
+
+            }
+
+            
+
+            if (nb_of_gs >= MAX_G_PER_N) { // if we reached the number of distinct g, we break out
                 break;
             }
 
@@ -143,8 +165,6 @@ void find_gs(nmod_poly_struct** factors, int nb_of_facs, nmod_poly_struct** gs, 
 } 
 
 void get_polys(int n, int target_k){
-
-    printf("hey");
 
     nmod_poly_t  f; 
     nmod_poly_factor_t facs;
@@ -158,7 +178,6 @@ void get_polys(int n, int target_k){
     nmod_poly_set_coeff_ui(f, n, 1);
     nmod_poly_factor(facs, f); //the factorization
 
-    printf("after fac");
 
     int nb_of_facs = 0;
     //nb_of_facs holds the number of factor multiplicity included
@@ -186,20 +205,19 @@ void get_polys(int n, int target_k){
 
     nmod_poly_struct** gs = malloc(MAX_G_PER_N * sizeof(nmod_poly_t)); // we hope there are no more than 20 gs per 
 
-    int* nb_of_gs;
-    *nb_of_gs = 0;
+    int nb_of_gs = 0;
 
-    printf("before gs");
-
-    find_gs(factors, nb_of_facs, gs, nb_of_gs, target_k);
+    find_gs(factors, nb_of_facs, gs, &nb_of_gs, target_k);
 
     // then need to find fs that match these gs
 
-    //int max_deg = n - target_k - 1;
+    //int max_deg = n - target_k - 1; 
+    printf("nb g:%i\n",nb_of_gs);
 
-    for (int k = 0; k < *nb_of_gs; k++){
-        nmod_poly_print(gs[k]);
+    for(int i = 0; i < nb_of_gs; i++){
+        free(gs[i]);
     }
+    
 
     free(factors);
     free(degrees);
@@ -675,8 +693,20 @@ int main(){
     int n = 12;
     int k = 2;
 
-    printf("hey0\n");
-
     get_polys(n,k);
+
+    // nmod_poly_t  f; 
+    // nmod_poly_init(f, 2); // GF(2)
+    
+    // nmod_poly_factor_t facs;
+    // nmod_poly_factor_init(facs);
+
+    // nmod_poly_set_coeff_ui(f, 0, 1);
+    // nmod_poly_set_coeff_ui(f, 12, 1);
+
+    // nmod_poly_factor(facs, f);
+
+    // nmod_poly_factor_print(facs);
+
 
 }
