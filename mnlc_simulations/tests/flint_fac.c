@@ -8,7 +8,9 @@
 #include "/usr/local/include/flint/ulong_extras.h"
 #include "/usr/local/include/flint/nmod_poly.h"
 
-#define MAX_G_PER_N 20
+#define MAX_G_PER_N 100
+
+typedef unsigned long long int ulint;
 
 char** factorize(char* poly_str, int* length){
 
@@ -68,9 +70,13 @@ void find_gs(nmod_poly_struct** factors, int nb_of_facs, nmod_poly_struct** gs, 
 
     int nb_of_gs = 0;
 
-    int range = (1 << nb_of_facs) - 1; 
+    printf("nb of facs:%d\n",nb_of_facs);
+
+    ulint range = (1ULL << nb_of_facs) - 1; 
+
+    printf("range:%llu\n",range);
   
-    for (int i = 1; i <= range; i++) {
+    for (ulint i = 1; i <= range; i++) {
 
         /*
         i will hold place of the indexes, from 000...001 to 111...111
@@ -79,11 +85,15 @@ void find_gs(nmod_poly_struct** factors, int nb_of_facs, nmod_poly_struct** gs, 
         // x is where we are in the bit representation of i
         // we copy i to y, then will consume y to keep track of the "1" in i
         // sum is the sum of the degrees
-        int x = 0, y = i, sum = 0;
+        int x = 0, sum = 0;
         int nb_fac_loaded = 0; 
+        ulint y = i;
 
         //this section gets the degrees of thepoly determined by i
         // and checks if we get the good k
+
+        int first_x;
+        int found_fx = 0;
   
         while (y > 0) { 
   
@@ -93,7 +103,13 @@ void find_gs(nmod_poly_struct** factors, int nb_of_facs, nmod_poly_struct** gs, 
                 sum += nmod_poly_degree(factors[x]); 
                 nb_fac_loaded++;
 
+                if (!found_fx){
+                    found_fx = 1;
+                    first_x = x;
+                }
+
                 if (sum > target_k) {
+                    i = i + (1ULL << first_x) -1; // -1 since it'll be added at the next loop
                     break;
                 }
             } 
@@ -110,7 +126,8 @@ void find_gs(nmod_poly_struct** factors, int nb_of_facs, nmod_poly_struct** gs, 
 
             nmod_poly_struct** fac_to_mul = malloc(nb_fac_loaded * sizeof(nmod_poly_t)); 
 
-            int x = 0, y = i;
+            int x = 0;
+            ulint y = i;
             int i_mul = 0;
 
 
@@ -136,11 +153,11 @@ void find_gs(nmod_poly_struct** factors, int nb_of_facs, nmod_poly_struct** gs, 
 
             int found = 0;
 
-            for (int i = 0; i < nb_of_gs; i++){
+            for (int j = 0; j < nb_of_gs; j++){
 
-                if (nmod_poly_equal(g, gs[i])){
+                if (nmod_poly_equal(g, gs[j])){
                     found = 1;
-                    free(g);
+                    nmod_poly_clear(g);
                 }
 
             }
@@ -148,12 +165,13 @@ void find_gs(nmod_poly_struct** factors, int nb_of_facs, nmod_poly_struct** gs, 
             if (found == 0) {
 
                 gs[nb_of_gs] = g;
-
+                //flint_printf("nb_of_gs:%d\n",nb_of_gs);
                 nb_of_gs++;
                 *nb_of_gs_ptr = nb_of_gs;
 
             }
 
+            free(fac_to_mul); //FREEEEE
             
 
             if (nb_of_gs >= MAX_G_PER_N) { // if we reached the number of distinct g, we break out
@@ -169,7 +187,7 @@ void get_polys(int n, int target_k){
     nmod_poly_t  f; 
     nmod_poly_factor_t facs;
 
-    //printf("Poly: %s end\n", poly_str);
+    // printf("Poly: %s end\n", poly_str);
 
     nmod_poly_init(f,2);
     nmod_poly_factor_init(facs);
@@ -209,21 +227,23 @@ void get_polys(int n, int target_k){
 
     find_gs(factors, nb_of_facs, gs, &nb_of_gs, target_k);
 
-    // then need to find fs that match these gs
+    // // then need to find fs that match these gs
 
-    //int max_deg = n - target_k - 1; 
+    // //int max_deg = n - target_k - 1; 
     printf("nb g:%i\n",nb_of_gs);
 
     for(int i = 0; i < nb_of_gs; i++){
+        nmod_poly_print(gs[i]);
+        printf("\n");
         free(gs[i]);
     }
     
 
-    free(factors);
-    free(degrees);
-    free(gs);
-    nmod_poly_clear(f);
-    nmod_poly_factor_clear(facs);
+    // free(factors);
+    // free(degrees);
+    // free(gs);
+    // nmod_poly_clear(f);
+    // nmod_poly_factor_clear(facs);
     
 
    
@@ -690,10 +710,13 @@ void find_wt2(size_t n, size_t w, size_t* g, size_t w_g){
 
 int main(){
 
-    int n = 12;
-    int k = 2;
+    int n = 120;
+    int k = 20;
 
     get_polys(n,k);
+
+
+    //get_polys(n,k);
 
     // nmod_poly_t  f; 
     // nmod_poly_init(f, 2); // GF(2)
