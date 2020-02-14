@@ -8,6 +8,8 @@
 #include "/usr/local/include/flint/ulong_extras.h"
 #include "/usr/local/include/flint/nmod_poly.h"
 
+#define MAX_G_PER_N 20
+
 char** factorize(char* poly_str, int* length){
 
     nmod_poly_t  f; 
@@ -44,6 +46,175 @@ char** factorize(char* poly_str, int* length){
     return my_factors;
    
 }
+
+void mul_array(nmod_poly_t  g, nmod_poly_struct** fac_to_mul, int nb_fac){
+
+    g = fac_to_mul[0]; // we can just copy the first element
+
+    nmod_poly_t  tmp;
+    nmod_poly_init(tmp,2);
+
+    for (int i = 1; i < nb_fac; i++){
+        nmod_poly_mul_classical(tmp,  g, fac_to_mul[i]);
+        nmod_poly_set(g, tmp);
+    }
+
+    nmod_poly_clear(tmp);
+
+}
+
+//https://www.geeksforgeeks.org/iterating-over-all-possible-combinations-in-an-array-using-bits/
+void find_gs(nmod_poly_struct** factors, int nb_of_facs, nmod_poly_struct** gs, int* nb_of_gs, int target_k){
+
+    
+
+    int range = (1 << nb_of_facs) - 1; 
+  
+    for (int i = 1; i <= range; i++) {
+
+        /*
+        i will hold place of the indexes, from 000...001 to 111...111
+        */ 
+
+        // x is where we are in the bit representation of i
+        // we copy i to y, then will consume y to keep track of the "1" in i
+        // sum is the sum of the degrees
+        int x = 0, y = i, sum = 0;
+        int nb_fac_loaded = 0; 
+
+        //this section gets the degrees of thepoly determined by i
+        // and checks if we get the good k
+  
+        while (y > 0) { 
+  
+            if (y & 1 == 1) { 
+  
+                // sum over degrees 
+                sum += nmod_poly_degree(factors[x]); 
+                nb_fac_loaded++;
+
+                if (sum > target_k) {
+                    break;
+                }
+            } 
+
+            x++; 
+            y = y >> 1; 
+
+        } 
+
+  
+        // If sum is found, get the g that comes out of it
+        if (sum == target_k){
+
+            nmod_poly_struct** fac_to_mul = malloc(nb_fac_loaded * sizeof(nmod_poly_t)); 
+
+            int x = 0, y = i;
+            int i_mul = 0;
+
+            while (y > 0) { 
+  
+                if (y & 1 == 1) { 
+
+                    fac_to_mul[i_mul] = factors[x];
+                    i_mul++;
+
+                } 
+
+                x++; 
+                y = y >> 1; 
+
+            }
+
+            nmod_poly_t  g;
+
+            mul_array(g, fac_to_mul, nb_fac_loaded);
+
+            gs[*nb_of_gs] = g;
+
+            *nb_of_gs++;
+
+            if (*nb_of_gs >= MAX_G_PER_N) {
+                break;
+            }
+
+        }
+    } 
+} 
+
+void get_polys(int n, int target_k){
+
+    printf("hey");
+
+    nmod_poly_t  f; 
+    nmod_poly_factor_t facs;
+
+    //printf("Poly: %s end\n", poly_str);
+
+    nmod_poly_init(f,2);
+    nmod_poly_factor_init(facs);
+
+    nmod_poly_set_coeff_ui(f, 0, 1);// we just define the ring
+    nmod_poly_set_coeff_ui(f, n, 1);
+    nmod_poly_factor(facs, f); //the factorization
+
+    printf("after fac");
+
+    int nb_of_facs = 0;
+    //nb_of_facs holds the number of factor multiplicity included
+    for (int i=0; i < facs->num; i++){
+
+        nb_of_facs += facs->exp[i];
+
+    }
+
+    
+    nmod_poly_struct** factors = malloc(nb_of_facs * sizeof(nmod_poly_t)); // stores the facs, dédoublés for multiplicity
+    slong* degrees = malloc(nb_of_facs * sizeof(slong)); // holdsthe degree of each fac
+
+    int count_facs = 0;
+
+    for (int i=0; i < facs->num; i++){
+
+        for(int j=0; j < facs->exp[i]; j++) {
+            factors[count_facs] = (facs->p + i);
+            degrees[count_facs] =  nmod_poly_degree(facs->p + i);
+            count_facs += 1;
+        }
+
+    }
+
+    nmod_poly_struct** gs = malloc(MAX_G_PER_N * sizeof(nmod_poly_t)); // we hope there are no more than 20 gs per 
+
+    int* nb_of_gs;
+    *nb_of_gs = 0;
+
+    printf("before gs");
+
+    find_gs(factors, nb_of_facs, gs, nb_of_gs, target_k);
+
+    // then need to find fs that match these gs
+
+    //int max_deg = n - target_k - 1;
+
+    for (int k = 0; k < *nb_of_gs; k++){
+        nmod_poly_print(gs[k]);
+    }
+
+    free(factors);
+    free(degrees);
+    free(gs);
+    nmod_poly_clear(f);
+    nmod_poly_factor_clear(facs);
+    
+
+   
+}
+
+
+
+  
+
 
 char* get_char(const size_t* places, size_t nb, size_t ring_n){
 
@@ -449,272 +620,6 @@ void deallocate_str(char* str){
     flint_free(str);
 }
 
-// int main()
-// {
-//     //char* poly = "128 2  1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1";
-//     //char* poly = "82 2  1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1";
-//     // char* poly = "4 2  1 0 0  1";
-//     // int* length;
-
-//     // char** my_factors = factorize(poly,length);
-    
-//     // int i;
-
-//     // printf("length:%d\n",*length);
-
-//     // for (i = 0; i < *length; i++) { 
-
-//     //     printf("%s\n",*(my_factors+i));
-        
-//     // }
-
-//     // deallocate(my_factors);
-
-//    // size_t coef_f[5] = {0, 1, 14, 25, 37};
-//     size_t coef_r[2] = {0,120};
-
-
-//     nmod_poly_t f;
-//     nmod_poly_t r;
-//     nmod_poly_t g;
-
-//     nmod_poly_init(f, 2);
-//     nmod_poly_init(r, 2);
-//     nmod_poly_init(g, 2);
-
-    
-//     // nmod_poly_set_coeff_ui(f, coef_f[0], 1);
-//     // nmod_poly_set_coeff_ui(f, coef_f[1], 1);
-//     // nmod_poly_set_coeff_ui(f, coef_f[2], 1);
-//     // nmod_poly_set_coeff_ui(f, coef_f[3], 1);
-//     // nmod_poly_set_coeff_ui(f, coef_f[4], 1);
-
-//    nmod_poly_set_str(f, "21 2  1 1 0 0 1 0 0 0 1 1 0 0 1 0 0 0 1 1 0 0 1");
-
-//     nmod_poly_set_coeff_ui(r, coef_r[0], 1);
-//     nmod_poly_set_coeff_ui(r, coef_r[1], 1);
-
-//     nmod_poly_gcd_euclidean(g, f, r);
-
-//     flint_printf("Polynomial:\n");
-//     nmod_poly_print_pretty(f, "x");
-
-//     nmod_poly_factor_t facs;
-//     nmod_poly_factor_init(facs);
-//     nmod_poly_factor(facs, g);
-
-//     flint_printf("\nFactorisation:\n");
-//     nmod_poly_factor_print(facs);
-
-//     nmod_poly_clear(f);
-//     nmod_poly_clear(r);
-//     nmod_poly_clear(g);
-//     nmod_poly_factor_clear(facs);
-
-//     // size_t coef_f[5] = {0,1,5,25,46};
-//     // size_t coef_r[2] = {0,60};
-
-
-//     // nmod_poly_t f;
-//     // nmod_poly_factor_t facs;
-
-//     // nmod_poly_init(f, 2);
-//     // nmod_poly_factor_init(facs);
-
-    
-//     // nmod_poly_set_coeff_ui(f, coef[0], 1);
-//     // nmod_poly_set_coeff_ui(f, coef[1], 1);
-//     // nmod_poly_set_coeff_ui(f, coef[2], 1);
-//     // nmod_poly_set_coeff_ui(f, coef[3], 1);
-//     // nmod_poly_set_coeff_ui(f, coef[4], 1);
-
-
-//     // nmod_poly_factor(facs, f);
-
-
-//     // flint_printf("Polynomial:\n");
-//     // nmod_poly_print(f);
-//     // flint_printf("\nFactorisation:\n");
-//     // nmod_poly_factor_print(facs);
-
-//     // nmod_poly_clear(f);
-//     // nmod_poly_factor_clear(facs);
-
-
-//     //
-
-//     // nmod_poly_init(f, 2);
-//     // nmod_poly_factor_init(facs);
-
-    
-//     // nmod_poly_set_coeff_ui(f, 0, 1);
-//     // nmod_poly_set_coeff_ui(f, 60, 1);
-
-
-//     // nmod_poly_factor(facs, f);
-
-
-//     // flint_printf("Polynomial:\n");
-//     // nmod_poly_print(f);
-//     // flint_printf("\nFactorisation:\n");
-//     // nmod_poly_factor_print(facs);
-
-//     // nmod_poly_clear(f);
-//     // nmod_poly_factor_clear(facs);
-
-
-//     // size_t coef[2] = {0,3};
-
-//     // size_t mul = get_multiplicity(coef,2);
-
-//     // printf("%lu\n",mul);
-
-//     return EXIT_SUCCESS;
-// }
-
-// int main()
-// {
-
-
-//     nmod_poly_t f;
-//     nmod_poly_t f2;
-//     nmod_poly_t res;
-
-//     nmod_poly_init(f, 2);
-//     nmod_poly_init(f2, 2);
-//     nmod_poly_init(res, 2);
-
-//     nmod_poly_set_str(f, "11 2  1 0 0 0 0 1 0 0 0 0 1");
-//     nmod_poly_set_str(f2, "11 2  1 0 1 1 0 0 0 0 0 1 1");
-
-//     nmod_poly_mul_classical(res , f , f2);
-
-
-//     flint_printf("Polynomials:\n");
-//     nmod_poly_print(f);
-//     nmod_poly_print(f2);
-
-//     flint_printf("\nMultiplication:\n");
-//     nmod_poly_print_pretty(res, "x");
-
-//     nmod_poly_clear(f);
-//     nmod_poly_clear(f2);
-//     nmod_poly_clear(res);
-
-//     return EXIT_SUCCESS;
-// }
-
-
-
-// int main()
-// {
-//     int ring_n = 108;
-
-//     nmod_poly_t pf1;
-//     nmod_poly_t pf2;
-
-//     nmod_poly_t g1;
-//     nmod_poly_t g2;
-
-//     nmod_poly_t fp1;
-//     nmod_poly_t fp2;
-
-//     nmod_poly_t c;
-
-//     nmod_poly_t q;
-//     nmod_poly_t r;
-
-//     nmod_poly_init(pf1, 2);
-//     nmod_poly_init(pf2, 2);
-
-//     nmod_poly_init(g1, 2);
-//     nmod_poly_init(g2, 2);
-
-//     nmod_poly_init(fp1, 2);
-//     nmod_poly_init(fp2, 2);
-
-//     nmod_poly_init(c, 2);
-
-//     nmod_poly_init(q, 2);
-//     nmod_poly_init(r, 2);
-
-//     nmod_poly_set_str(pf1, "15 2  0 0 0 1 1 0 0 1 0 0 1 1 0 0 1");
-//     //extend_f(pf2, pf1);
-
-//     nmod_poly_set_str(g1, "7 2  1 1 0 1 0 1 1");
-
-//     nmod_poly_gcd_euclidean(c, pf1, g1);
-//     nmod_poly_divrem_basecase(q, r, pf1, g1);
-
-//     flint_printf("Prefactor:\n");
-
-//     nmod_poly_print(pf1);
-//     flint_printf("\n");
-//     // nmod_poly_print(pf2);
-//     // flint_printf("\n");
-
-//     flint_printf("Q:\n");
-//     nmod_poly_print(q);
-//     flint_printf("\nR:\n");
-//     nmod_poly_print(r);
-//     flint_printf("\n");
-
-//     flint_printf("\nCommon polynomial between f and g:\n");
-//     nmod_poly_print(c);
-//     flint_printf("\n");
-//     // nmod_poly_print_pretty(c, "x");
-//     // flint_printf("\n");
-
-    
-//     // nmod_poly_factor_t fac1;
-//     // nmod_poly_factor_t fac2;
-//     // nmod_poly_factor_init(fac1);
-//     // nmod_poly_factor_init(fac2);
-    
-//     // nmod_poly_factor(fac1,pf1);
-//     // nmod_poly_factor(fac2,pf2);
-
-//     // flint_printf("\nFactorisation:\n");
-//     // nmod_poly_factor_print(fac1);
-//     // flint_printf("\nFactorisation 2:\n");
-//     // nmod_poly_factor_print(fac2);
-
-//     // nmod_poly_t ring;
-//     // nmod_poly_t gcd1;
-//     // nmod_poly_t gcd2;
-
-//     // nmod_poly_init(ring, 2);
-//     // nmod_poly_init(gcd1, 2);
-//     // nmod_poly_init(gcd2, 2);
-
-//     // nmod_poly_set_coeff_ui(ring, ring_n, 1);
-//     // nmod_poly_set_coeff_ui(ring, 0, 1);
-
-//     // nmod_poly_gcd_euclidean(gcd1, pf1, ring);
-//     // nmod_poly_gcd_euclidean(gcd2, pf2, ring);
-
-//     // flint_printf("\nGCD1: (should be 1) \n");
-//     // nmod_poly_print(gcd1);
-//     // flint_printf("\nGCD2: (should be 1) \n");
-//     // nmod_poly_print(gcd2);
-//     // flint_printf("\n");
-
-
-//     nmod_poly_clear(pf1);
-//     // nmod_poly_clear(pf2);
-//     nmod_poly_clear(q);
-//     nmod_poly_clear(r);
-//     nmod_poly_clear(c);
-//     nmod_poly_clear(g1);
-//     nmod_poly_clear(g2);
-//     // nmod_poly_factor_clear(fac1);
-//     // nmod_poly_factor_clear(fac2);
-
-//     return EXIT_SUCCESS;
-// }
-
-
-
 void init(size_t *ptr, size_t len){
     size_t i;
 
@@ -766,38 +671,12 @@ void find_wt2(size_t n, size_t w, size_t* g, size_t w_g){
 
 
 int main(){
-    
 
-    size_t g_indices[7] = {0,3,4,5,6,7,10}; 
-    size_t *g = g_indices;
+    int n = 12;
+    int k = 2;
 
-    size_t w_g = 7;
+    printf("hey0\n");
 
-    size_t w;
+    get_polys(n,k);
 
-    for (w = 3; w < 7; w++){
-        find_wt2(60,w, g, w_g);
-    } 
-
-    
-
-
-    
-    // for (i_0 = 0   ; i_0 <= n - 3 - deg_g; i_0 ++){
-    //     for (i_1 = i_0 + 1; i_1 <= n - 2 - deg_g; i_1 ++){
-    //         for (i_2 = i_1 + 1; i_2 <= n - 1 - deg_g; i_2 ++){
-    //             for (i_3 = i_2 + 1; i_3 <= n - 0 - deg_g; i_3 ++){
-                    
-    //                 size_t indexes[4] = {i_0, i_1, i_2, i_3};
-    //                 //printf("loop:%i,%i,%i,%i,%i\n", i_0,i_1,i_2,i_3,i_4);
-    //                 mk_mul(indexes, 4, g, w_g);
-
-
-                    
-    //             }
-    //         }
-    //     }
-    // }
-
-    printf("\n");
 }
