@@ -285,9 +285,9 @@ impl ParityCheckMatrix {
     /// );
     /// assert_eq!(parity_check.rank(), 2);
     /// ```
-    // pub fn rank(&self) -> usize {
-    //     Ranker::new(self).rank()
-    // }
+    pub fn rank_old(&self) -> usize {
+        Ranker::new(self).rank()
+    }
 
     /// Computes the smallest path for each check needed to link each bit of that check together
     /// and returns the number of time each step is included in a path.
@@ -775,12 +775,9 @@ impl ParityCheckMatrix {
 
 
     pub fn rank(&self) -> usize{
-
-
-       //let start_init = Instant::now();
         
         let n_cols = self.n_bits;
-        let mut n_rows = self.n_checks();
+        let n_rows = self.n_checks();
         let mut rank = 0;
 
         let mut tmp_matrix: Vec<Vec<usize>> = Vec::with_capacity(n_rows); 
@@ -790,195 +787,46 @@ impl ParityCheckMatrix {
             tmp_matrix.push(self.bit_indices[self.check_ranges[i]..self.check_ranges[i+1]].to_vec()); // we store the original matrix as a vector of sparse rows
 
         }
-
-       //let duration_init = start_init.elapsed();
-
-       //let mut sum_time = Duration::new(0, 0);
-
-       // let start_run = Instant::now();
        
         for j in 0..n_cols {
-            //let start = Instant::now();
-            for i in (0..n_rows).rev() { //in rev because we prefer removing last elements rather than first ones
-                //println!("{},{}",i,j);
-                //println!("row: {:?}",tmp_matrix[i]);
-                // println!("tmp_mat:{:?}",tmp_matrix);
-                // println!("accessing i:{}",i);
-                // println!("row:{:?}",tmp_matrix[i]);
+
+            for i in 0..n_rows { 
 
                 if tmp_matrix[i].len() > 0 && tmp_matrix[i][0] == j    { // select a NEW pivot
-                    //println!("n_rows:{}",n_rows);
-                    
-                   // let start = Instant::now();
-                    
 
                     for k in 0..i {
-                        //println!("compared row: {:?}",tmp_matrix[k]);
-                        // println!("in first");
 
                         if  tmp_matrix[k].len() > 0 && tmp_matrix[k][0] == j  {
-                            
-                            
 
                             tmp_matrix[k] = add_checks(&tmp_matrix[i],&tmp_matrix[k]);
 
-                            
-                                                  
-                            
-  
                         }
-                    //    println!("out first");  
 
                     }
                     for k in (i+1)..n_rows {
-                        //println!("compared row: {:?}",tmp_matrix[k]);
-
-                        //println!("in snd");
 
                         if tmp_matrix[k].len() > 0 && tmp_matrix[k][0] == j   {
 
-                            
-
                             tmp_matrix[k] = add_checks(&tmp_matrix[i],&tmp_matrix[k]);
 
-                            
-                            
                         }
 
-                        //println!("out snd");
 
                     }
-                    
-                    // println!("start rmv");
-                    //tmp_matrix.swap_remove(i);
-                   // tmp_matrix[i] = vec![];
+
                     unsafe {tmp_matrix[i].set_len(0)};
-                    //tmp_matrix[i].clear();
                     rank += 1;
-                    // println!("out rmv");
-                    //sum_time += start.elapsed();
-                    
-                   // n_rows -= 1;
+
                     break
                 }
             }
-            //sum_time += start.elapsed();
-            //println!("{}/{}",j,(n_cols-2))
+
             
         }
-        
-        
-        
-        
-        // for i in 0..n_rows {
-        //     if tmp_matrix[i].is_empty() {
-        //         rank -= 1;
-        //     }
-        // }
-       // let duration_run = start_run.elapsed();
-        
-
-       //println!("init:{:?}, sum:{:?}",duration_init, sum_time);
-        //rank -= n_rows;
+       
         rank
 
     }
-
-    pub fn ranky2(&self) -> usize{
-
-
-       //let start_init = Instant::now();
-        
-        let n_cols = self.n_bits;
-        let mut n_rows = self.n_checks();
-        let mut rank = n_rows;
-
-        let mut tmp_matrix: HashMap<usize, Vec<usize>> = HashMap::with_capacity(n_rows); 
-
-        for i in 0..n_rows {
-
-            tmp_matrix.insert(i,self.bit_indices[self.check_ranges[i]..self.check_ranges[i+1]].to_vec()); // we store the original matrix as a vector of sparse rows
-
-        }
-
-       //let duration_init = start_init.elapsed();
-
-       //let mut sum_time = Duration::new(0, 0);
-
-       // let start_run = Instant::now();
-
-    
-
-        for j in 0..(n_cols-1) {
-
-            
-            let keys = get_keys(&tmp_matrix);
-
-            //let start = Instant::now();
-            
-            for i in keys {
-                //println!("{},{}",i,j);
-                //println!("row: {:?}",tmp_matrix[i]);
-                // println!("tmp_mat:{:?}",tmp_matrix);
-                // println!("accessing i:{}",i);
-                // println!("row:{:?}",tmp_matrix.get(&i).unwrap());
-                
-                if tmp_matrix.get(&i).unwrap().len() > 0 && tmp_matrix.get(&i).unwrap()[0] == j    { // select a NEW pivot
-                    //println!("n_rows:{}",n_rows);
-                    
-                   // let start = Instant::now();
-                    /*
-
-                    for k in keys {
-                        //println!("compared row: {:?}",tmp_matrix[k]);
-                        // println!("in first");
-
-                        let row_k = tmp_matrix.get(&k).unwrap();
-
-                        if k != i && row_k.len() > 0 && row_k[0] == j  {
-                            
-                            *tmp_matrix.get_mut(&k).unwrap() = add_checks(&tmp_matrix.get(&i).unwrap(),&row_k);  
-  
-                        }
-                        // println!("out first");  
-
-                    }
-                    */
-                    
-                    // println!("start rmv");
-                    tmp_matrix.remove(&i);
-                    // println!("out rmv");
-                    //sum_time += start.elapsed();
-                    
-                    n_rows -= 1;
-                    break
-                }
-                
-            }
-            //sum_time += start.elapsed();
-            // println!("{}/{}",j,(n_cols-2))
-            
-        }
-        
-        
-        
-        /*
-        for row in tmp_matrix.values(){
-            if row.is_empty() {
-                rank -= 1;
-            }
-        }*/
-        // rank -= n_rows;
-       // let duration_run = start_run.elapsed();
-        
-
-       //println!("init:{:?}, sum:{:?}",duration_init,sum_time);
-        rank
-
-    }
-    
-
-
 
     //
     // Private methods
@@ -1034,6 +882,7 @@ impl ParityCheckMatrix {
         Self::new(checks, self.n_bits())
     }
 
+
     pub fn keep_mut(&self, target: &mut ParityCheckMatrix, bits: &[usize]){
         
 
@@ -1047,12 +896,23 @@ impl ParityCheckMatrix {
 
             let mut nb_check = 0;
 
-            for bit in bits {
-                if let Ok(_) = check.positions.binary_search(&bit) {
-                    target.bit_indices.push(*bit);
-                    nb_check += 1;
-                }
-            }
+            check
+                .positions()
+                .iter()
+                .filter(|&bit| {
+                    //let found = bits.iter().any(|b| b == bit);
+                    let found = binary_search(bits, bit);
+                    if found {
+                        target.bit_indices.push(*bit);
+                        nb_check += 1;
+                    }
+                    found
+                    }).count();
+
+            
+
+            
+
             tot_nb_checks += nb_check;
             target.check_ranges.push(tot_nb_checks);
 
@@ -1060,7 +920,33 @@ impl ParityCheckMatrix {
 
 
     }
+
 }
+
+pub fn binary_search(data: &[usize], target: &usize) -> bool {
+
+    let mut high = data.len()-1;
+    let mut low = 0;
+    
+    if target < &data[0] || target > &data[high] {
+        return false
+    }
+ 
+    while low <= high {
+        let mid = (low + high) / 2;
+
+        if data[mid] < *target {
+            low = mid + 1
+        } else if data[mid] > *target {
+            high = mid - 1
+        } else if data[mid] == *target {
+            return true
+        }
+
+    }
+    return false
+}
+
 
 fn get_keys(map: &HashMap<usize, Vec<usize>>) -> Vec<usize> {
         let mut keys: Vec<usize> = Vec::with_capacity(map.len());
@@ -1542,6 +1428,7 @@ pub fn add_checks(check_0: &[usize], check_1: &[usize]) -> Vec<usize> {
 
 pub fn add_checks_mut(check_0: &[usize], check_1: &[usize], sum: &mut Vec<usize>){
     //let mut sum = Vec::with_capacity(check_0.len() + check_1.len());
+    sum.clear();
     let mut iter_0 = check_0.iter().peekable();
     let mut iter_1 = check_1.iter().peekable();
     loop {
