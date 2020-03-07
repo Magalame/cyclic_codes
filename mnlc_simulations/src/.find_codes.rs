@@ -568,10 +568,10 @@ pub fn count_code_5(n: usize, target_k: usize) -> usize{
 
 pub fn count_all_codes_5(n: usize) -> usize{
 
-    let count_found: usize =  
-        (1..n-3).into_par_iter().map( 
+     
+        (1..n-3).into_iter().map( 
         |i_0| {
-            //println!("i_0:{}",i_0);
+            
             let mut count = 0;
             for i_1 in (i_0+1)..(n-2) {
                 for i_2 in (i_1+1)..(n-1) {
@@ -964,7 +964,7 @@ pub fn test_family_3_mul(n0: usize, k0: usize, max_n: usize ) {
                     err_rate = simulator.simulate_until_failures_are_found(2,5).failure_rate();
                     
                 }
-                (err_rate, max_multiplicity(vec![0,i_0, i_1])) 
+                (err_rate, multiplicity(vec![0,i_0, i_1])) 
             }
 
             ).filter(|(x,_)| *x != -1.0).collect();
@@ -1057,7 +1057,7 @@ pub fn test_family_5_wmul(n0: usize, k0: usize, max_n: usize ) {
     for i in 1..max_n+1 {
         let n = n0*i;
         let k = k0*i;
-        let mut res: Vec<(usize,f64,f64)> = Vec::with_capacity(n);
+        let mut res: Vec<(usize,f64,usize)> = Vec::with_capacity(n);
         let mut count = 0;
 
         println!("at n={}",n);
@@ -1384,20 +1384,26 @@ pub fn test_family_5(n0: usize, k0: usize, max_n: usize ) {
     let wtr = csv::Writer::from_path(&format!("/home/nouey/Projects/simul/mnlc_simulations/data/fam5_test_fcwpf_n0{}_k0{}",n0,k0)).ok().unwrap();
     let mwtr = Arc::new(Mutex::new(wtr));
 
-    let decoder_builder = EDBuilder::new(0.49);
     
-    (1..max_n+1).into_par_iter().for_each(|i| {
+    
+    for i in 1..max_n+1 {
 
         let n = n0*i;
         let k = k0*i;
 
-        let mut indexes: Vec<usize> = vec![0; 5];
+        
 
-        let mut codes = HashMap::new();
+        let codes = HashMap::new();
+        let mcodes = Arc::new(Mutex::new(codes));
+        
 
-        let awriter = Arc::clone(&mwtr);
+        (1..n-1).into_par_iter().for_each(|i_0| {
 
-         for i_0 in 1..n-1 {
+            let awriter = Arc::clone(&mwtr);
+            let acodes = Arc::clone(&mcodes);
+
+            let mut indexes: Vec<usize> = vec![0; 5];
+
             for i_1 in (i_0+1)..(n-2) {
                 for i_2 in (i_1+1)..(n-1) {
                     for i_3 in (i_2+1)..n {
@@ -1410,7 +1416,11 @@ pub fn test_family_5(n0: usize, k0: usize, max_n: usize ) {
                         let char_string = char_str(&indexes, n);
                         let pf_string = prefactor_str(&indexes, n);
 
+                        let mut codes = acodes.lock().unwrap();
+
                         if !codes.contains_key(&char_string) {
+
+                            drop(codes);
 
                             
                             let matrix = ParityCheckMatrix::circulant_right_better(&indexes, n);
@@ -1425,6 +1435,8 @@ pub fn test_family_5(n0: usize, k0: usize, max_n: usize ) {
                                 shared_writer.write_record(&[format!("{}",n),format!("{}",k), format!("{}",err_rate), format!("{}",&char_string), format!("{}",&pf_string) ]).ok();
                                 shared_writer.flush().ok();
                             } 
+
+                            let mut codes = acodes.lock().unwrap();
                             codes.insert(char_string,1);       
 
                         } else {
@@ -1432,6 +1444,12 @@ pub fn test_family_5(n0: usize, k0: usize, max_n: usize ) {
                             if let Some(count) = codes.get_mut(&char_string) {
 
                                 if *count < 5 {
+
+                                    *count += 1;
+
+                                    drop(count);
+                                    drop(codes);
+
                                     let matrix = ParityCheckMatrix::circulant_right_better(&indexes, n);
                                     let code_k = n-matrix.rank();
 
@@ -1446,7 +1464,7 @@ pub fn test_family_5(n0: usize, k0: usize, max_n: usize ) {
                                         shared_writer.flush().ok();
                                     }
 
-                                    *count += 1;
+                                    
                                 } 
 
                             }
@@ -1460,9 +1478,9 @@ pub fn test_family_5(n0: usize, k0: usize, max_n: usize ) {
 
             }
 
-        } 
+        }); 
 
-    });
+    }
 
 
 }
@@ -1477,7 +1495,7 @@ pub fn test_family_3_range(n0: usize, k0: usize, max_n: usize ) {
     
     let mut n = n0;
     let target_ratio = (k0 as f64)/( n0 as f64);
-    let mut res: Vec<(usize,f64,u32)> = Vec::with_capacity(n + max_n);
+    let mut res: Vec<(usize,f64,usize)> = Vec::with_capacity(n + max_n);
     for i in 1..max_n+1 {
         
         
@@ -1507,7 +1525,7 @@ pub fn test_family_3_range(n0: usize, k0: usize, max_n: usize ) {
                             
                         }
 
-                        let mul= max_multiplicity(vec![0,i_0,i_1]);
+                        let mul= multiplicity(vec![0,i_0,i_1], n);
 
                         (code_k,err_rate,mul)
                         
@@ -1901,7 +1919,7 @@ pub fn test_family_5_range_mul(n0: usize, k0: usize, max_n: usize ) {
     
     let mut n = n0;
     let target_ratio = (k0 as f64)/( n0 as f64);
-    let mut res: Vec<(usize,f64)> = Vec::with_capacity(min(10,n*max_n));
+    let mut res: Vec<(usize,usize)> = Vec::with_capacity(min(10,n*max_n));
     for i in 1..max_n+1 {
         
         
@@ -2105,7 +2123,7 @@ pub fn test_family_5_mul(n0: usize, k0: usize, max_n: usize ) {
     
     let mut n = n0;
     let target_ratio = (k0 as f64)/( n0 as f64);
-    let mut res: Vec<(usize,f64)> = Vec::with_capacity(min(10,n*max_n));
+    let mut res: Vec<(usize,usize)> = Vec::with_capacity(min(10,n*max_n));
     for i in 1..max_n+1 {
         
         

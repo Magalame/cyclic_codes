@@ -7,6 +7,8 @@ use crate::graphs::*;
 use crate::qc::*;
 use crate::flint::*;
 
+use std::cmp::Ordering::*;
+
 use mnlc_simulations::*;
 use std::error::Error;
 
@@ -193,8 +195,8 @@ fn main() -> Result<(),Box<dyn Error>> {
     //     println!("n:{}, nb:{}", n,count);
     // }
 
-    // for n in 6..50{
-    //     let max = find_max_k_3(n);
+    // for n in 5..10{
+    //     let max = find_max_k_5(n);
     //     println!("n:{}, max k:{}",n, max); 
     // }
 
@@ -228,20 +230,78 @@ fn main() -> Result<(),Box<dyn Error>> {
  
 //test_family_5_wmul(15,2, 500);
 
-for n in 3..30 {
-    let mgg = fill_mgg(n);
-    let n: usize = n.try_into().unwrap();
-    let pcm = mgg_to_sparse(mgg, n);
-    let r = pcm.rank();
+// for n in 3..30 {
+//     let mgg = fill_mgg(n);
+//     let n: usize = n.try_into().unwrap();
+//     let pcm = mgg_to_sparse(mgg, n);
+//     let r = pcm.rank();
 
-    println!("n:{}, N:{}, k:{}",n, n*n, n*n-r);
-}
+//     println!("n:{}, N:{}, k:{}",n, n*n, n*n-r);
+// }
 
+let data = vec![1, 2, 3];
+let target = 5;
+
+println!("{}", binary_search(&data,&target));
 
 Ok(())
 
 }
 
+// BinarySearch(A[0..N-1], value) {
+//       low = 0
+//       high = N - 1
+//       while (low <= high) {
+
+//           mid = (low + high) / 2
+//           if (A[mid] > value)
+//               high = mid - 1
+//           else if (A[mid] < value)
+//               low = mid + 1
+//           else
+//               return mid
+//       }
+//       return not_found // value would be inserted at index "low"
+//   }
+
+pub fn binary_search(data: &[usize], target: &usize) -> bool {
+
+    if target < &data[0] {
+        return false
+    }
+
+    let mut high = data.len()-1;
+    let mut low = 0;
+    
+ 
+    while low <= high {
+        let mid = (low + high) / 2;
+
+        match data[mid].cmp(target) {
+            Less => low = mid + 1,
+            Greater => high = mid - 1,
+            Equal => return true,
+        };
+    }
+    return false
+}
+
+
+// pub fn binary_search(data: &[usize], target: &usize) -> bool {
+//     let mut high = data.len();
+//     let mut low = 0;
+//     let mut mid = high / 2;
+ 
+//     while low < high {
+//         match target.cmp(&data[mid]) {
+//             Less => high = mid - 1,
+//             Greater => low = mid + 1,
+//             Equal => return true,
+//         };
+//         mid = (high + low) / 2;
+//     }
+//     return false
+// }
 
 
 

@@ -75,6 +75,8 @@ void find_gs(nmod_poly_struct** factors, int nb_of_facs, nmod_poly_struct** gs, 
     ulint range = (1ULL << nb_of_facs) - 1; 
 
     printf("range:%llu\n",range);
+
+    ulint trials = 0;
   
     for (ulint i = 1; i <= range; i++) {
 
@@ -88,6 +90,8 @@ void find_gs(nmod_poly_struct** factors, int nb_of_facs, nmod_poly_struct** gs, 
         int x = 0, sum = 0;
         int nb_fac_loaded = 0; 
         ulint y = i;
+        trials ++;
+
 
         //this section gets the degrees of thepoly determined by i
         // and checks if we get the good k
@@ -175,11 +179,15 @@ void find_gs(nmod_poly_struct** factors, int nb_of_facs, nmod_poly_struct** gs, 
             
 
             if (nb_of_gs >= MAX_G_PER_N) { // if we reached the number of distinct g, we break out
+                printf("Nb of trials:%llu",trials);
                 break;
             }
 
         }
     } 
+
+    printf("Nb of trials:%llu",trials);
+    
 } 
 
 void get_polys(int n, int target_k){
@@ -230,13 +238,13 @@ void get_polys(int n, int target_k){
     // // then need to find fs that match these gs
 
     // //int max_deg = n - target_k - 1; 
-    printf("nb g:%i\n",nb_of_gs);
+    // printf("nb g:%i\n",nb_of_gs);
 
-    for(int i = 0; i < nb_of_gs; i++){
-        nmod_poly_print(gs[i]);
-        printf("\n");
-        free(gs[i]);
-    }
+    // for(int i = 0; i < nb_of_gs; i++){
+    //     nmod_poly_print(gs[i]);
+    //     printf("\n");
+    //     free(gs[i]);
+    // }
     
 
     // free(factors);
@@ -252,7 +260,80 @@ void get_polys(int n, int target_k){
 
 
   
+size_t get_k(const size_t* places, size_t nb, size_t ring_n){
 
+    nmod_poly_t  f; 
+    nmod_poly_t  r;
+    nmod_poly_t  g;
+
+    
+    nmod_poly_init(f, 2); // GF(2)
+    nmod_poly_init(r, 2);
+    nmod_poly_init(g, 2);
+
+    size_t index = 0;
+
+    for (index = 0; index < nb; index ++) {
+        nmod_poly_set_coeff_ui(f, places[index], 1);
+    }
+
+    nmod_poly_set_coeff_ui(r, ring_n, 1);
+    nmod_poly_set_coeff_ui(r, 0, 1);
+
+    nmod_poly_gcd_euclidean(g, f, r);
+
+    size_t k = nmod_poly_degree(g);
+
+    nmod_poly_clear(f);
+    nmod_poly_clear(r);
+    nmod_poly_clear(g);
+
+    
+    return k;
+   
+}
+
+char* get_gen(const size_t* places, size_t nb, size_t ring_n){
+
+    nmod_poly_t  f; 
+    nmod_poly_t  r;
+    nmod_poly_t  h;
+    nmod_poly_t  g;
+
+    nmod_poly_factor_t facs;
+    nmod_poly_factor_init(facs);
+    
+    nmod_poly_init(f, 2); // GF(2)
+    nmod_poly_init(r, 2);
+    nmod_poly_init(h, 2);
+    nmod_poly_init(g, 2);
+
+    size_t index = 0;
+
+    for (index = 0; index < nb; index ++) {
+        nmod_poly_set_coeff_ui(f, places[index], 1);
+    }
+
+    nmod_poly_set_coeff_ui(r, ring_n, 1);
+    nmod_poly_set_coeff_ui(r, 0, 1);
+
+    nmod_poly_gcd_euclidean(h, f, r);
+
+    nmod_poly_div_basecase(g, r, h);
+
+    //nmod_poly_factor(facs, g); //the factorization
+
+    char* char_poly = nmod_poly_get_str(g);
+
+    nmod_poly_clear(f);
+    nmod_poly_clear(r);
+    nmod_poly_clear(g);
+    nmod_poly_factor_clear(facs);
+
+    
+    return char_poly;
+   
+}
 
 char* get_char(const size_t* places, size_t nb, size_t ring_n){
 
@@ -529,6 +610,7 @@ double get_multiplicity(const size_t* places, size_t nb, size_t ring_n){
     nmod_poly_t  f; 
     nmod_poly_t  r;
     nmod_poly_t  g;
+    nmod_poly_t  h;
 
     nmod_poly_factor_t facs;
     nmod_poly_factor_init(facs);
@@ -536,6 +618,7 @@ double get_multiplicity(const size_t* places, size_t nb, size_t ring_n){
     nmod_poly_init(f, 2); // GF(2)
     nmod_poly_init(r, 2);
     nmod_poly_init(g, 2);
+    nmod_poly_init(h, 2);
 
     size_t index = 0;
 
@@ -546,9 +629,11 @@ double get_multiplicity(const size_t* places, size_t nb, size_t ring_n){
     nmod_poly_set_coeff_ui(r, ring_n, 1);
     nmod_poly_set_coeff_ui(r, 0, 1);
 
-    nmod_poly_gcd_euclidean(g, f, r);
+    nmod_poly_gcd_euclidean(h, f, r);
 
-    nmod_poly_factor(facs, g); //the factorization
+    nmod_poly_div_basecase(g, r, h);
+
+    nmod_poly_factor(facs, h); //the factorization
 
     int i;
     double mul = 0;
@@ -560,9 +645,12 @@ double get_multiplicity(const size_t* places, size_t nb, size_t ring_n){
 
     }
 
+    mul = mul/facs->num;
+
 
     nmod_poly_clear(f);
     nmod_poly_clear(r);
+    nmod_poly_clear(h);
     nmod_poly_clear(g);
     nmod_poly_factor_clear(facs);
     
@@ -710,11 +798,7 @@ void find_wt2(size_t n, size_t w, size_t* g, size_t w_g){
 
 int main(){
 
-    int n = 120;
-    int k = 20;
-
-    get_polys(n,k);
-
+    
 
     //get_polys(n,k);
 

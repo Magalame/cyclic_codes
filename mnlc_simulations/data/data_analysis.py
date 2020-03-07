@@ -78,13 +78,12 @@ from random import uniform
 # # plt.title("~"+str(k0)+"/"+str(n0)+ " family, weight 3")
 
 # plt.show()
-
+#12_4, 14_3
 n0 = 12
 k0 = 2
 
-n,k,err = np.loadtxt(open("fam5_fcwpf_n0"+str(n0)+"_k0"+str(k0)), delimiter=',', usecols=(0,1,2), unpack=True,skiprows=0)
-
-plt.scatter(n,np.log10(err),c=np.divide(k,n),cmap="rainbow", vmin=0, vmax=.8) 
+n,k,err,w = np.loadtxt(open("fam5_dist_gen_char_n0"+str(n0)+"_k0"+str(k0)), delimiter=',', usecols=(0,1,2,3), unpack=True,skiprows=0)
+plt.scatter(n,np.log10(err),c=np.divide(w,n),cmap="rainbow") 
 plt.show()
 
 # n0 = 9

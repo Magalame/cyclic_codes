@@ -15,7 +15,9 @@ extern {
     fn mem_test2(places: *const usize) -> *const c_char;
     fn get_multiplicity(places: *const usize, nb: usize, ring_n: usize) -> f64;
     fn get_char(places: *const usize, nb: usize, ring_n: usize) -> *const c_char;
+    fn get_gen(places: *const usize, nb: usize, ring_n: usize) -> *const c_char;
     fn get_prefactor(places: *const usize, nb: usize, ring_n: usize) -> *const c_char;
+    fn get_k(places: *const usize, nb: usize, ring_n: usize) -> usize;
     fn get_pf_and_char(places: *const usize, nb: usize, ring_n: usize) -> *const *const c_char;
     fn deallocate(factors_raw: *const *const c_char);
     fn deallocate_str(string: *const c_char);
@@ -72,24 +74,8 @@ pub fn rs_mem_test2(poly: &Vec<usize>) -> String {
 
 }
 
-pub fn max_multiplicity(poly: Vec<usize>) -> u32{
-    let poly_str = poly_to_str(poly);
-    let facs = get_factors(poly_str);
 
-    // let mut max_mul = 0;
-
-    // for fac in facs {
-    //     max_mul = max(max_mul, (fac.chars().nth(fac.len()-1)).unwrap().to_digit(10).unwrap())
-    // }
-
-    facs.into_iter().map(|fac| {
-        //let mul = (fac.chars().nth(fac.len()-1)).unwrap().to_digit(10).unwrap();
-        //mul*mul
-        1
-    }).sum()
-}
-
-pub fn multiplicity(poly: Vec<usize>, ring_n: usize) -> f64{
+pub fn multiplicity(poly: &Vec<usize>, ring_n: usize) -> f64{
     let len = poly.len();
     let poly_ptr = poly.as_ptr();
 
@@ -98,6 +84,8 @@ pub fn multiplicity(poly: Vec<usize>, ring_n: usize) -> f64{
     mul
 
 }
+
+
 
 pub fn char_str(poly: &Vec<usize>, ring_n: usize) -> String{
     let len = poly.len();
@@ -110,6 +98,30 @@ pub fn char_str(poly: &Vec<usize>, ring_n: usize) -> String{
     unsafe{ deallocate_str(c_buf) };
 
     str_buf
+
+}
+
+pub fn gen_str(poly: &Vec<usize>, ring_n: usize) -> String{
+    let len = poly.len();
+    let poly_ptr = poly.as_ptr();
+
+    let c_buf: *const c_char = unsafe { get_gen(poly_ptr, len, ring_n)};
+    let c_str: &CStr = unsafe { CStr::from_ptr(c_buf) };
+    let str_slice: &str = c_str.to_str().unwrap();
+    let str_buf: String = str_slice.to_owned(); 
+    unsafe{ deallocate_str(c_buf) };
+
+    str_buf
+
+}
+
+pub fn code_k(poly: &Vec<usize>, ring_n: usize) -> usize{
+    let len = poly.len();
+    let poly_ptr = poly.as_ptr();
+
+    let k: usize = unsafe { get_k(poly_ptr, len, ring_n)};
+    
+    k
 
 }
 

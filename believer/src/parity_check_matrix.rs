@@ -828,6 +828,144 @@ impl ParityCheckMatrix {
 
     }
 
+    
+ 
+    pub fn tmp_rank_pcm(&self) -> Vec<Vec<usize>>{
+        let n_rows = self.n_checks();
+        let mut tmp_matrix: Vec<Vec<usize>> = Vec::with_capacity(n_rows); 
+        for _ in 0..n_rows {
+
+            let new_row = Vec::with_capacity(n_rows);
+
+            tmp_matrix.push(new_row); 
+
+        }
+
+        tmp_matrix
+    }
+
+    pub fn rank_mut(&self, tmp_matrix: &mut Vec<Vec<usize>>) -> usize{
+        
+        let n_cols = self.n_bits;
+        let n_rows = self.n_checks();
+        let mut rank = 0;
+
+        for i in 0..tmp_matrix.len() {
+            tmp_matrix[i].clear();
+            let new_row = &self.bit_indices[self.check_ranges[i]..self.check_ranges[i+1]];
+
+            for j in 0..new_row.len() {
+                tmp_matrix[i].push(new_row[j]);
+            }
+
+        }
+       
+        for j in 0..n_cols {
+
+            for i in 0..n_rows { 
+
+                if tmp_matrix[i].len() > 0 && tmp_matrix[i][0] == j    { // select a NEW pivot
+
+                    for k in 0..i {
+
+                        if  tmp_matrix[k].len() > 0 && tmp_matrix[k][0] == j  {
+
+                            
+                            tmp_matrix[k] = add_checks(&tmp_matrix[i],&tmp_matrix[k]);
+                            //println!("{:?}",tmp_matrix[k]);
+
+                        }
+
+                    }
+                    for k in (i+1)..n_rows {
+
+                        if tmp_matrix[k].len() > 0 && tmp_matrix[k][0] == j   {
+
+                            tmp_matrix[k] = add_checks(&tmp_matrix[i],&tmp_matrix[k]);
+                            //println!("{:?}",tmp_matrix[k]);
+
+                        }
+
+
+                    }
+
+                    unsafe {tmp_matrix[i].set_len(0)};
+                    rank += 1;
+
+                    break
+                }
+            }
+
+            
+        }
+       
+        rank
+
+    }
+
+    pub fn rank_mut2(&self, tmp_matrix: &mut Vec<Vec<usize>>, tmp_sum: &mut Vec<usize>) -> usize{
+        
+        let n_cols = self.n_bits;
+        let n_rows = self.n_checks();
+        let mut rank = 0;
+
+        for i in 0..tmp_matrix.len() {
+            let new_row = &self.bit_indices[self.check_ranges[i]..self.check_ranges[i+1]];
+
+            tmp_matrix[i].clear();
+            
+            for j in 0..new_row.len() {
+                tmp_matrix[i].push(new_row[j]);
+            }
+
+
+        }
+       
+        for j in 0..n_cols {
+
+            for i in 0..n_rows { 
+
+                if tmp_matrix[i].len() > 0 && tmp_matrix[i][0] == j    { // select a NEW pivot
+
+                    for k in 0..i {
+
+                        if  tmp_matrix[k].len() > 0 && tmp_matrix[k][0] == j  {
+                            
+                            add_checks_mut(&tmp_matrix[i], &tmp_matrix[k],tmp_sum);
+                            transfer_to(tmp_sum, &mut tmp_matrix[k]);
+                            tmp_sum.clear();
+                           // println!("{:?}",tmp_matrix[k]);
+
+                        }
+
+                    }
+                    for k in (i+1)..n_rows {
+
+                        if tmp_matrix[k].len() > 0 && tmp_matrix[k][0] == j   {
+
+                            add_checks_mut(&tmp_matrix[i], &tmp_matrix[k],tmp_sum);
+                            transfer_to(tmp_sum, &mut tmp_matrix[k]);
+                            tmp_sum.clear();
+                            //println!("{:?}",tmp_matrix[k]);
+                        }
+
+
+                    }
+
+                    unsafe {tmp_matrix[i].set_len(0)};
+                    rank += 1;
+
+                    break
+                }
+            }
+
+            
+        }
+       
+        rank
+
+    }
+
     //
     // Private methods
     // *
@@ -921,6 +1059,17 @@ impl ParityCheckMatrix {
 
     }
 
+}
+
+fn transfer_to(v1: &[usize], v2: &mut Vec<usize>){
+    // if v2.capacity() < v1.len() {
+    //    println!("cap:{}, len:{}",v2.capacity(), v1.len());
+    //    println!("{:?}",v1);
+    // }
+    unsafe{ v2.set_len(v1.len())}
+    for i in 0..v1.len() {
+        v2[i] = v1[i];
+    }
 }
 
 pub fn binary_search(data: &[usize], target: &usize) -> bool {
