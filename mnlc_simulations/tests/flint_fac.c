@@ -293,6 +293,50 @@ size_t get_k(const size_t* places, size_t nb, size_t ring_n){
    
 }
 
+size_t get_quantum_k(const size_t* places_a, size_t nb_a, const size_t* places_b, size_t nb_b, size_t ring_n){
+
+    nmod_poly_t  f_a; 
+    nmod_poly_t  f_b; 
+    nmod_poly_t  r;
+    nmod_poly_t  g;
+    nmod_poly_t  g_tmp;
+
+    
+    nmod_poly_init(f_a, 2); // GF(2)
+    nmod_poly_init(f_b, 2);
+    nmod_poly_init(r, 2);
+    nmod_poly_init(g, 2);
+    nmod_poly_init(g_tmp, 2);
+
+    size_t index = 0;
+
+    for (index = 0; index < nb_a; index ++) {
+        nmod_poly_set_coeff_ui(f_a, places_a[index], 1);
+    }
+
+    for (index = 0; index < nb_b; index ++) {
+        nmod_poly_set_coeff_ui(f_b, places_b[index], 1);
+    }
+
+    nmod_poly_set_coeff_ui(r, ring_n, 1);
+    nmod_poly_set_coeff_ui(r, 0, 1);
+
+    nmod_poly_gcd_euclidean(g_tmp, f_a, r);
+    nmod_poly_gcd_euclidean(g, f_b, g_tmp);
+
+    size_t k = 2*nmod_poly_degree(g);
+
+    nmod_poly_clear(f_a);
+    nmod_poly_clear(f_b);
+    nmod_poly_clear(r);
+    nmod_poly_clear(g);
+    nmod_poly_clear(g_tmp);
+
+    
+    return k;
+   
+}
+
 char* get_gen(const size_t* places, size_t nb, size_t ring_n){
 
     nmod_poly_t  f; 

@@ -1,7 +1,0 @@
-for each n, get all the factors
-get the degree of each factor, counting the multiplicity as + how many identical factors
-use grey codes to check all combinations of factors degree, look for a combination s.t. degree = k
-this would make use rely a lot more on flint, and less on rank computation
-also decrease the number of trials
-
-then for each g(x) created, we try all the f(x) possible (up to degree n - k - 1), and check for weight

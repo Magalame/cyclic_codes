@@ -1,5 +1,5 @@
 use std::cmp::{max,min};
-use believer::{ParityCheckMatrix, EDBuilder,ClassicalSimulator,DecoderBuilder,Simulator,add_checks_mut};
+use believer::{ParityCheckMatrix,QuantumErasureDecoder, Decoder};
 use rayon::prelude::*;
 use crate::graphs::*;
 use crate::qc::*;
@@ -7,7 +7,9 @@ use crate::flint::*;
 use std::ops::Range;
 use std::time::{Duration, Instant};
 use std::sync::{Arc, Mutex};
-use gcd::Gcd;
+use std::str::FromStr;
+
+// use gcd::Gcd;
 use std::collections::HashSet;
 use std::collections::HashMap;
 
@@ -24,160 +26,207 @@ pub fn init(vec: &mut Vec<usize>, w:usize){
     }
 }
 
-// pub fn test_family(n0: usize, iter: usize){
+fn str_to_vec(s: &str) -> Vec<usize> {
+    s.trim_matches(|p| p == '[' || p == ']')
+                                .split(',').map(|s| s.trim()) 
+                                .map(|x| usize::from_str(x).unwrap())
+                                .collect()
+}
+pub fn landscape_from_classical(n0: usize, iter: usize){
     
-//     let lim_per_g = 5;
+    let p_physical = 0.2;
 
-    
-//     for w in &[5] {
+    for n in n0..n0 + iter {
 
-//         let n_workers = 8;
-//         let pool = Pool::<ThunkWorker<()>>::new(n_workers);
+        println!("at n:{}",n);
 
-//         let (tx, rx) = channel();
+        let wtr = Arc::new(Mutex::new(csv::Writer::from_path(&format!("/home/nouey/Projects/mnlc2/mnlc_simulations/data/landscape_from_classical_n0:{}_p:{}_r:0.1",n,p_physical)).ok().unwrap()));
 
-//         for i in 0..iter {
-//             pool.execute_to(tx.clone(), Thunk::of(move ||{
-//                 let g_count: HashMap<String, usize> = HashMap::new();
-//                 let m_g_count = Arc::new(Mutex::new(g_count));
+        let rdr_res = csv::ReaderBuilder::new().has_headers(false)
+                                          .from_path(&format!("/home/nouey/Projects/mnlc3/mnlc_simulations/data/all_codes_5_n:{}",n));
 
-//                 let mut poly_index: Vec<usize> = Vec::with_capacity(*w); 
+        if let Ok(rdr) = rdr_res {
+
+            let mut rdr = rdr;
+
+            for row in rdr.records() {
+                let row = row.unwrap();
+                let mut rdr2 = csv::ReaderBuilder::new().has_headers(false)
+                                                   .from_path(&format!("/home/nouey/Projects/mnlc3/mnlc_simulations/data/all_codes_5_n:{}",n)).ok().unwrap();
+
+                for row2 in rdr2.records() {
+
+                    let row2 = row2.unwrap();
+                    let code_a = str_to_vec(&row[4]);
+                    let k_a: usize = row[1].parse().unwrap();
+                    let g_a: String = row[3].parse().unwrap();
+                    let code_b = str_to_vec(&row2[4]);
+                    let k_b: usize = row2[1].parse().unwrap();
+                    let g_b: String = row2[3].parse().unwrap();
+
+                    let x_opt = simulate_code_quantum_classical(&code_a, k_a, g_a, &code_b, k_b, g_b, n, p_physical);
+
+                    if let Some(x) = x_opt {
+                        let mut wtr = wtr.lock().unwrap();
+                        wtr.write_record(&[format!("{}",x.n),
+                                            format!("{}",x.k),
+                                            format!("{}",x.k_a),
+                                            format!("{}",x.k_b),   
+                                            format!("{}",x.err.unwrap()),
+                                            format!("{}",x.g_a.unwrap()), 
+                                            format!("{}",x.g_b.unwrap()),row[4].to_string() , row2[4].to_string()]).ok();
+                            wtr.flush().ok();
+                    } else {}
+                }
+            }
+
+        } else {}
+    }
+
+}
+
+pub fn landscape_from_classical_fixed_fam(n0: usize, iter: usize){
+    let p_physical = 0.2;
+
+    let n_workers = 8;
+    let pool = Pool::<ThunkWorker<()>>::new(n_workers);
+
+    let (tx, rx) = channel();
+
+
+    for n in n0..n0 + iter {
+
+        println!("at n:{}",n);
+
+        let wtr = Arc::new(Mutex::new(csv::Writer::from_path(&format!("/home/nouey/Projects/mnlc2/mnlc_simulations/data/landscape_from_classical_fixed_n0:{}_p:{}_r:0.1_bump",n,p_physical)).ok().unwrap()));
+
+        let rdr_res = csv::ReaderBuilder::new().has_headers(false)
+                                          .from_path(&format!("/home/nouey/Projects/mnlc3/mnlc_simulations/data/all_codes_5_n:{}",n));
+
+        if let Ok(rdr) = rdr_res {
+
+            let mut rdr = rdr;
+
+            for row in rdr.records() {
+                let row = row.unwrap();
+                let mut rdr2 = csv::ReaderBuilder::new().has_headers(false)
+                                                   .from_path(&format!("/home/nouey/Projects/mnlc3/mnlc_simulations/data/all_codes_5_n:{}",n)).ok().unwrap();
+                    
+                for row2 in rdr2.records() {
+
+                    let row2 = row2.unwrap();
+                    let g_a: String = row[3].parse().unwrap();
+                    let g_b: String = row2[3].parse().unwrap();
+
+                    if g_a == g_b {
+
+                        let code_a = str_to_vec(&row[4]);
+                        let k_a: usize = row[1].parse().unwrap();
+                        
+                        let code_b = str_to_vec(&row2[4]);
+                        let k_b: usize = row2[1].parse().unwrap();
+
+                        
+
+                        let wtr = Arc::clone(&wtr);
+                        
+                        pool.execute_to(tx.clone(), Thunk::of(move ||{
+                            let x_opt = simulate_code_quantum_classical(&code_a, k_a, g_a, &code_b, k_b, g_b, n, p_physical);
+                            if let Some(x) = x_opt {
+                            
+                            let mut wtr = wtr.lock().unwrap();
+                            wtr.write_record(&[format!("{}",x.n),
+                                                format!("{}",x.k),
+                                                format!("{}",x.k_a),
+                                                format!("{}",x.k_b),   
+                                                format!("{}",x.err.unwrap()),
+                                                format!("{}",x.g_a.unwrap()), 
+                                                format!("{}",x.g_b.unwrap()),format!("{:?}",code_a) , format!("{:?}",code_b)]).ok();
+                                wtr.flush().ok();
+                            } else {}
+                        }));
+
+                        
+                        
+                    }
+                }
+
                 
-//                 let n = n0 + i;
+            }
 
-//                 let mut wtr = csv::Writer::from_path(&format!("/home/nouey/Projects/simul/mnlc_simulations/data/all_codes_5_n:{}",n)).ok().unwrap();
+        } else {}
+        pool.join(); 
+    }  
 
-//                 init(&mut poly_index, *w);
+    
+    
 
-//                 let poly = Poly{
-//                     indexes: Some(poly_index),
-//                     n
-//                 };
+}
 
-//                 for code in poly {
-//                     let a_g_count = Arc::clone(&m_g_count);
-//                     let res = conditional_simul_all_k(a_g_count, lim_per_g, &code, n);
-//                     if let Some(sres) = res {
-//                         wtr.write_record(&[format!("{}",n),format!("{}",sres.k), format!("{}",sres.err.unwrap()),format!("{}",sres.g.unwrap()),format!("{:?}",sres.coef.unwrap())]).ok();
-//                         wtr.flush().ok();
+
+// pub fn landscape_from_classical_fixed_fam(n0: usize, iter: usize){
+//     let p_physical = 0.2;
+
+//     for n in n0..n0 + iter {
+
+//         println!("at n:{}",n);
+
+//         let wtr = Arc::new(Mutex::new(csv::Writer::from_path(&format!("/home/nouey/Projects/mnlc2/mnlc_simulations/data/landscape_from_classical_fixed_n0:{}_p:{}_r:0.1",n,p_physical)).ok().unwrap()));
+
+//         let rdr_res = csv::ReaderBuilder::new().has_headers(false)
+//                                           .from_path(&format!("/home/nouey/Projects/mnlc3/mnlc_simulations/data/all_codes_5_n:{}",n));
+
+//         if let Ok(rdr) = rdr_res {
+
+//             let mut rdr = rdr;
+
+//             rdr.records().par_bridge().for_each(|row| {
+//                 let row = row.unwrap();
+//                 let mut rdr2 = csv::ReaderBuilder::new().has_headers(false)
+//                                                    .from_path(&format!("/home/nouey/Projects/mnlc3/mnlc_simulations/data/all_codes_5_n:{}",n)).ok().unwrap();
+
+//                 for row2 in rdr2.records() {
+
+//                     let row2 = row2.unwrap();
+//                     let g_a: String = row[3].parse().unwrap();
+//                     let g_b: String = row2[3].parse().unwrap();
+
+//                     if g_a == g_b {
+
+//                         let code_a = str_to_vec(&row[4]);
+//                         let k_a: usize = row[1].parse().unwrap();
+                        
+//                         let code_b = str_to_vec(&row2[4]);
+//                         let k_b: usize = row2[1].parse().unwrap();
+                        
+
+//                         let x_opt = simulate_code_quantum_classical(&code_a, k_a, g_a, &code_b, k_b, g_b, n, p_physical);
+
+//                         if let Some(x) = x_opt {
+//                             let mut wtr = wtr.lock().unwrap();
+//                             wtr.write_record(&[format!("{}",x.n),
+//                                                 format!("{}",x.k),
+//                                                 format!("{}",x.k_a),
+//                                                 format!("{}",x.k_b),   
+//                                                 format!("{}",x.err.unwrap()),
+//                                                 format!("{}",x.g_a.unwrap()), 
+//                                                 format!("{}",x.g_b.unwrap()),row[4].to_string() , row2[4].to_string()]).ok();
+//                                 wtr.flush().ok();
+//                         } else {}
 //                     }
 //                 }
+//             })
 
-//                 println!("Finished n:{}",n)
-
-//             }));
-//         }
-
-//         pool.join();
-
-
-
+//         } else {}
 //     }
+
+    
+
 
     
     
 
 // }
-
-
-pub fn test_family(n0: usize, iter: usize){
-    
-    let lim_per_g = 5;
-
-    
-    //let m_wtr = Arc::new(Mutex::new(wtr));
-
-    for w in &[5] {
-
-
-        for i in 0..iter {
-
-            let g_count: HashMap<String, usize> = HashMap::new();
-            let m_g_count = Arc::new(Mutex::new(g_count));
-
-            //let mut poly_index: Vec<usize> = Vec::with_capacity(*w); 
-
-            let mut poly_index: Vec<usize> = vec![0, 48, 72, 84, 89]; 
-            
-            let n = n0 + i;
-
-            let mut wtr = csv::Writer::from_path(&format!("/home/nouey/Projects/simul/mnlc_simulations/data/all_codes_5_n:{}",n)).ok().unwrap();
-
-            //init(&mut poly_index, *w);
-
-            let poly = Poly{
-                indexes: Some(poly_index),
-                n
-            };
-
-            let n_workers = 7;
-            let pool = Pool::<ThunkWorker<Option<SimulRes>>>::new(n_workers);
-
-            let (tx, rx) = channel();
-
-            let mut count = 0;
-
-            for code in poly {
-                let a_g_count = Arc::clone(&m_g_count);
-                pool.execute_to(tx.clone(), Thunk::of(move ||{
-                    let x = conditional_simul_all_k(a_g_count, lim_per_g, &code, n);
-                    x
-                }));
-                count += 1;
-            }
-
-            
-
-            for res in rx.iter().take(count) {
-                if let Some(sres) = res {
-                    wtr.write_record(&[format!("{}",n),format!("{}",sres.k), format!("{}",sres.err.unwrap()),format!("{}",sres.g.unwrap()),format!("{:?}",sres.coef.unwrap())]).ok();
-                    wtr.flush().ok();
-                }
-            }
-
-
-        }
-
-    }
-
-    
-    
-
-}
-
-
-pub fn find_max_k_5(n: usize) -> usize{
-
-    let mut max_max = 0;
-
-    if let Some(max_found) = (1..n-3).into_par_iter().map( 
-        |i_0| {
-            let mut max_k = 0;
-            for i_1 in (i_0+1)..(n-2) {
-                for i_2 in (i_1+1)..(n-1) {
-                    for i_3 in (i_2+1)..n {
-                        
-                        let matrix = ParityCheckMatrix::circulant_right_better_5(i_0,i_1,i_2,i_3, n);
-
-                        let k = n-matrix.rank();
-
-                        if k>max_k {
-                            max_k = k;
-                        }
-
-                    }
-                }
-            }
-            max_k
-        }
-
-    ).max() {
-        max_max = max_found;
-    }
-
-    max_max
-
-}
 
 pub fn gen_to_pcm(gen: String) -> ParityCheckMatrix{
     //let len: usize = gen.split("  ").nth(0).unwrap().split(" ").nth(0).unwrap().parse().unwrap();
@@ -197,60 +246,36 @@ pub fn gen_to_pcm(gen: String) -> ParityCheckMatrix{
         i +=1 ;
     }
 
-    ParityCheckMatrix::circulant_right_better(&poly, i+1)
+    ParityCheckMatrix::circulant_right(&poly, i+1)
 }
 
-pub fn min_distance(code: &Vec<usize>, n: usize) -> usize{
+pub fn conditional_simul_quantum(ag_count: Arc<Mutex<HashMap<(String,String),usize>>>, g_lim:usize, code_a: &[usize], code_b: &[usize], n: usize, p:f64) -> Option<QuantSimulRes>{
 
-    let gen = gen_str(code, n);
+   // println!("Simulating a:{:?}, b:{:?}", code_a, code_b);
 
-    let matrix = gen_to_pcm(gen);
+    //let matrix = ParityCheckMatrix::gbc_from_poly(code_a, code_b, n);
+    let code_k = quantum_code_k(code_a, code_b, n);
 
-    let w = code.len();
-    let mut sum: Vec<usize> = Vec::with_capacity(2*w);
+    if (code_k as f64)/((2*n) as f64) >= 0.1 {
 
-    matrix.checks_iter().map( |row1| {
-        let min1 = matrix.checks_iter().filter_map( |row2| {
-            add_checks_mut(row1.positions(), row2.positions(), &mut sum);
-            let w = sum.len();
-            if w == 0 { //for the case where we add the row to itself
-                None
-            } else {
-                Some(w)
-            }
-        }).min().unwrap();
+        let g_a = char_str(code_a,n);
 
-        let min2 = row1.positions().len();
-
-        min(min1, min2)
-
-    }).min().unwrap()
-
-}
-
-
-pub fn conditional_simul(ag_count: Arc<Mutex<HashMap<String,usize>>>, g_lim:usize, code: &Vec<usize>, n: usize, target_k: usize) -> Option<SimulRes>{
-
-    let matrix = ParityCheckMatrix::circulant_right_better(code, n);
-    let code_k = n-matrix.rank();
-
-    if target_k == code_k {
-
-        let g = char_str(code,n);
+        let g_b = char_str(code_b,n);
 
         let mut g_count = ag_count.lock().unwrap();
 
+        let gs = (g_a, g_b);
         
-        if !g_count.contains_key(&g) {
+        if !g_count.contains_key(&gs) {
 
-            g_count.insert(g,1);
+            g_count.insert(gs,1);
 
             drop(g_count);
 
-            return simulate_code(code, n, target_k)
+            return simulate_code_quantum(code_a, code_b, n, code_k,p)
 
         } else {
-            if let Some(count) = g_count.get_mut(&g) {
+            if let Some(count) = g_count.get_mut(&gs) {
 
                 if *count < g_lim {
                     *count += 1;
@@ -258,7 +283,7 @@ pub fn conditional_simul(ag_count: Arc<Mutex<HashMap<String,usize>>>, g_lim:usiz
                     drop(count);
                     drop(g_count);
 
-                    return simulate_code(code, n, target_k)
+                    return simulate_code_quantum(code_a, code_b, n, code_k,p)
                 } else {
 
                     drop(count);
@@ -276,165 +301,88 @@ pub fn conditional_simul(ag_count: Arc<Mutex<HashMap<String,usize>>>, g_lim:usiz
         None
     }
 
-
-
 }
 
-pub fn conditional_simul_all_k(ag_count: Arc<Mutex<HashMap<String,usize>>>, g_lim:usize, code: &Vec<usize>, n: usize) -> Option<SimulRes>{
+pub fn simulate_code_quantum_classical(code_a: &[usize], k_a :usize, g_a: String, code_b: &[usize], k_b :usize, g_b: String,  n: usize, p:f64) -> Option<QuantSimulRes> {
+
+    //println!("Started a:{:?}, b:{:?}", code_a, code_b);
+
+    let k = quantum_code_k(code_a, code_b, n);
+
+    if (k as f64) / ((2*n) as f64) >= 0.1 {
+
+        let matrix = ParityCheckMatrix::gbc_from_poly(code_a, code_b, n);
+
+        let mut decoder = QuantumErasureDecoder::new_merged(matrix, p);
+        let err = decoder.simulate_until_n_events_are_found(20).get_failure_rate();
+        // let err = decoder.simulate_n_iterations(10000000).get_failure_rate();
+        
+
+        //println!("Finished a:{:?}, b:{:?}", code_a, code_b);
+
+
+        return Some(QuantSimulRes {
+            n: 2*n,
+            k_a,
+            k_b,
+            k,
+            err: Some(err),
+            cr:None,
+            g_a: Some(g_a),
+            g_b: Some(g_b),
+
+        })
+
+    } else {
+        None
+    }
 
     
-    let code_k = code_k(code, n);
-
-    if (code_k as f64)/(n as f64) >= 0.1 {
-
-        let g = char_str(code,n);
-
-        let mut g_count = ag_count.lock().unwrap();
-
-        
-        if !g_count.contains_key(&g) {
-
-            g_count.insert(g,1);
-
-            drop(g_count);
-
-            return simulate_code(code, n, code_k)
-
-        } else {
-            if let Some(count) = g_count.get_mut(&g) {
-
-                if *count < g_lim {
-                    *count += 1;
-
-                    drop(count);
-                    drop(g_count);
-
-                    return simulate_code(code, n, code_k)
-                } else {
-
-                    drop(count);
-                    drop(g_count);
-
-                    return None
-                }
-            
-            }
-
-            return None
-        }
-
-    } else {
-        None
-    }
-
-
 
 }
 
+pub fn simulate_code_quantum(code_a: &[usize], code_b: &[usize], n: usize, k: usize, p:f64) -> Option<QuantSimulRes> {
 
-pub fn conditional_simul_range(ag_count: Arc<Mutex<HashMap<String,usize>>>, g_lim:usize, code: &Vec<usize>, n: usize, target_ratio: f64) -> Option<SimulRes>{
+    let matrix = ParityCheckMatrix::gbc_from_poly(code_a, code_b, n);
 
-    let code_k = code_k(code, n);
+    let mut decoder = QuantumErasureDecoder::new_merged(matrix, p);
+    let err = decoder.simulate_until_n_events_are_found(20).get_failure_rate();
 
-    let code_ratio = (code_k as f64)/(n as f64);
+    let k_a = code_k(code_a, n);
+    let k_b = code_k(code_b, n);
 
-    if target_ratio - 0.05 < code_ratio && code_ratio < target_ratio + 0.05 && code_k.gcd(n) == 1 {
+    let g_a = char_str(code_a,n);
 
-        let g = char_str(code,n);
+    let g_b = char_str(code_b,n);
 
-        let mut g_count = ag_count.lock().unwrap();
-
-        
-        if !g_count.contains_key(&g) {
-
-            g_count.insert(g,1);
-
-            drop(g_count);
-
-            return simulate_code(code, n, code_k)
-
-        } else {
-            if let Some(count) = g_count.get_mut(&g) {
-
-                if *count < g_lim {
-                    *count += 1;
-
-                    drop(count);
-                    drop(g_count);
-
-                    return simulate_code(code, n, code_k)
-                } else {
-
-                    drop(count);
-                    drop(g_count);
-
-                    return None
-                }
-            
-            }
-
-            return None
-        }
-
-    } else {
-        None
-    }
+    println!("Finished a:{:?}, b:{:?}", code_a, code_b);
 
 
-
-}
-
-pub fn simulate_code(code: &Vec<usize>, n: usize, target_k: usize) -> Option<SimulRes> {
-
-    println!("Started: {:?}",code);
-
-    let decoder_builder = EDBuilder::new(0.49);
-    let err = get_err(code, n, &decoder_builder);
-    let g = char_str(code, n);
-    //println!("enter");
-    //println!("out");
-    //let cr = code_cr(code, n);
-    
-    //let mul = multiplicity(&code, n);
-
-    println!("Ended: {:?}",code);
-    return Some(SimulRes {
-        n,
-        k:target_k,
+    return Some(QuantSimulRes {
+        n: 2*n,
+        k_a,
+        k_b,
+        k,
         err: Some(err),
-        cr: None,
-        dist: None,
-        g: Some(g),
-        f: None,
-        mul: None,
-        coef: Some(code.to_vec())
+        cr:None,
+        g_a: Some(g_a),
+        g_b: Some(g_b),
+
     })
 
 }
 
-pub struct SimulRes {
+pub struct QuantSimulRes {
     n: usize,
+    k_a: usize,
+    k_b: usize,
     k: usize,
     err: Option<f64>, //err rate
     cr: Option<usize>, // cr number
-    dist: Option<usize>,
-    g: Option<String>,
-    f: Option<String>,
-    mul: Option<f64>,
-    coef: Option<Vec<usize>>
+    g_a: Option<String>,
+    g_b: Option<String>,
 }
 
-pub fn get_err(code: &Vec<usize>, n: usize, decoder_builder: &EDBuilder) -> f64 {
-
-    let matrix = ParityCheckMatrix::circulant_right_better(code, n);
-
-    let decoder = decoder_builder.from_code(matrix);
-    let simulator = ClassicalSimulator::new(decoder);
-    let err_rate = simulator.simulate_until_failures_are_found_serial(20).failure_rate();
-
-    err_rate
-
-}
 
 pub fn code_cr(code: &Vec<usize>, n:usize) -> usize {
     let (v1,v2) = poly_to_edgelist(code,n);
@@ -497,7 +445,7 @@ impl Iterator for Poly {
         let w = indexes.len();
 
         
-        if indexes[1] <= n - w + 1 { //&& indexes[w-1] < n 
+        if indexes[1] <= n - w + 1 {
             for i in 2..w {
                 if indexes[i] == n - w + i {
                     indexes[i-1] = indexes[i-1] + 1;

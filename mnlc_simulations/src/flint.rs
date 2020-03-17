@@ -18,6 +18,7 @@ extern {
     fn get_gen(places: *const usize, nb: usize, ring_n: usize) -> *const c_char;
     fn get_prefactor(places: *const usize, nb: usize, ring_n: usize) -> *const c_char;
     fn get_k(places: *const usize, nb: usize, ring_n: usize) -> usize;
+    fn get_quantum_k(places_a: *const usize, nb_a: usize, places_b: *const usize, nb_b: usize, ring_n: usize) -> usize; 
     fn get_pf_and_char(places: *const usize, nb: usize, ring_n: usize) -> *const *const c_char;
     fn deallocate(factors_raw: *const *const c_char);
     fn deallocate_str(string: *const c_char);
@@ -87,7 +88,7 @@ pub fn multiplicity(poly: &Vec<usize>, ring_n: usize) -> f64{
 
 
 
-pub fn char_str(poly: &Vec<usize>, ring_n: usize) -> String{
+pub fn char_str(poly: &[usize], ring_n: usize) -> String{
     let len = poly.len();
     let poly_ptr = poly.as_ptr();
 
@@ -115,11 +116,24 @@ pub fn gen_str(poly: &Vec<usize>, ring_n: usize) -> String{
 
 }
 
-pub fn code_k(poly: &Vec<usize>, ring_n: usize) -> usize{
+pub fn code_k(poly: &[usize], ring_n: usize) -> usize{
     let len = poly.len();
     let poly_ptr = poly.as_ptr();
 
     let k: usize = unsafe { get_k(poly_ptr, len, ring_n)};
+    
+    k
+
+}
+
+pub fn quantum_code_k(poly_a: &[usize], poly_b: &[usize], ring_n: usize) -> usize{
+    let len_a = poly_a.len();
+    let poly_ptr_a = poly_a.as_ptr();
+
+    let len_b = poly_b.len();
+    let poly_ptr_b = poly_b.as_ptr();
+
+    let k: usize = unsafe { get_quantum_k(poly_ptr_a, len_a, poly_ptr_b, len_b, ring_n)};
     
     k
 
