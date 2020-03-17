@@ -24,55 +24,114 @@ pub fn init(vec: &mut Vec<usize>, w:usize){
     }
 }
 
-pub fn test_family(n0: usize, k0: usize, iter: usize){
+// pub fn test_family(n0: usize, iter: usize){
+    
+//     let lim_per_g = 5;
+
+    
+//     for w in &[5] {
+
+//         let n_workers = 8;
+//         let pool = Pool::<ThunkWorker<()>>::new(n_workers);
+
+//         let (tx, rx) = channel();
+
+//         for i in 0..iter {
+//             pool.execute_to(tx.clone(), Thunk::of(move ||{
+//                 let g_count: HashMap<String, usize> = HashMap::new();
+//                 let m_g_count = Arc::new(Mutex::new(g_count));
+
+//                 let mut poly_index: Vec<usize> = Vec::with_capacity(*w); 
+                
+//                 let n = n0 + i;
+
+//                 let mut wtr = csv::Writer::from_path(&format!("/home/nouey/Projects/simul/mnlc_simulations/data/all_codes_5_n:{}",n)).ok().unwrap();
+
+//                 init(&mut poly_index, *w);
+
+//                 let poly = Poly{
+//                     indexes: Some(poly_index),
+//                     n
+//                 };
+
+//                 for code in poly {
+//                     let a_g_count = Arc::clone(&m_g_count);
+//                     let res = conditional_simul_all_k(a_g_count, lim_per_g, &code, n);
+//                     if let Some(sres) = res {
+//                         wtr.write_record(&[format!("{}",n),format!("{}",sres.k), format!("{}",sres.err.unwrap()),format!("{}",sres.g.unwrap()),format!("{:?}",sres.coef.unwrap())]).ok();
+//                         wtr.flush().ok();
+//                     }
+//                 }
+
+//                 println!("Finished n:{}",n)
+
+//             }));
+//         }
+
+//         pool.join();
+
+
+
+//     }
+
+    
+    
+
+// }
+
+
+pub fn test_family(n0: usize, iter: usize){
     
     let lim_per_g = 5;
 
-    let mut wtr = csv::Writer::from_path(&format!("/home/nouey/Projects/simul/mnlc_simulations/data/fam5_dist_gen_char_n0{}_k0{}",n0,k0)).ok().unwrap();
+    
     //let m_wtr = Arc::new(Mutex::new(wtr));
 
     for w in &[5] {
 
 
-        for i in 1..iter+1 {
+        for i in 0..iter {
 
             let g_count: HashMap<String, usize> = HashMap::new();
             let m_g_count = Arc::new(Mutex::new(g_count));
 
-            let mut poly_index: Vec<usize> = Vec::with_capacity(*w); 
-            
-            let n = n0*i;
-            let target_k = k0*i;
+            //let mut poly_index: Vec<usize> = Vec::with_capacity(*w); 
 
-            init(&mut poly_index, *w);
+            let mut poly_index: Vec<usize> = vec![0, 48, 72, 84, 89]; 
+            
+            let n = n0 + i;
+
+            let mut wtr = csv::Writer::from_path(&format!("/home/nouey/Projects/simul/mnlc_simulations/data/all_codes_5_n:{}",n)).ok().unwrap();
+
+            //init(&mut poly_index, *w);
 
             let poly = Poly{
                 indexes: Some(poly_index),
                 n
             };
 
-            let n_workers = 8;
+            let n_workers = 7;
             let pool = Pool::<ThunkWorker<Option<SimulRes>>>::new(n_workers);
 
             let (tx, rx) = channel();
 
+            let mut count = 0;
+
             for code in poly {
                 let a_g_count = Arc::clone(&m_g_count);
                 pool.execute_to(tx.clone(), Thunk::of(move ||{
-                    let x = conditional_simul(a_g_count, 5, &code, n, target_k);
+                    let x = conditional_simul_all_k(a_g_count, lim_per_g, &code, n);
                     x
                 }));
+                count += 1;
             }
 
             
 
-            for res in rx {
+            for res in rx.iter().take(count) {
                 if let Some(sres) = res {
-                    wtr.write_record(&[format!("{}",n),format!("{}",target_k), format!("{}",sres.err.unwrap()),format!("{}",sres.dist.unwrap()),format!("{}",sres.g.unwrap())]).ok();
+                    wtr.write_record(&[format!("{}",n),format!("{}",sres.k), format!("{}",sres.err.unwrap()),format!("{}",sres.g.unwrap()),format!("{:?}",sres.coef.unwrap())]).ok();
                     wtr.flush().ok();
-                }
-                if pool.active_count() == 0 && pool.queued_count() == 0 {
-                    break;
                 }
             }
 
@@ -86,67 +145,6 @@ pub fn test_family(n0: usize, k0: usize, iter: usize){
 
 }
 
-pub fn test_family_range(n0: usize, k0: usize, iter: usize){
-    
-    let lim_per_g = 5;
-    let target_ratio = (k0 as f64)/(n0 as f64);
-
-    let mut wtr = csv::Writer::from_path(&format!("/home/nouey/Projects/simul/mnlc_simulations/data/fam5_wmul_n0{}_k0{}",n0,k0)).ok().unwrap();
-    //let m_wtr = Arc::new(Mutex::new(wtr));
-
-    for w in &[5] {
-
-
-        for i in n0..(n0+iter+1) {
-
-            let g_count: HashMap<String, usize> = HashMap::new();
-            let m_g_count = Arc::new(Mutex::new(g_count));
-
-            let mut poly_index: Vec<usize> = Vec::with_capacity(*w); 
-            
-            let n = i;
-
-            init(&mut poly_index, *w);
-
-            let poly = Poly{
-                indexes: Some(poly_index),
-                n
-            };
-
-            let n_workers = 8;
-            let pool = Pool::<ThunkWorker<Option<SimulRes>>>::new(n_workers);
-
-            let (tx, rx) = channel();
-
-            for code in poly {
-                let a_g_count = Arc::clone(&m_g_count);
-                pool.execute_to(tx.clone(), Thunk::of(move ||{
-                    let x = conditional_simul_range(a_g_count, lim_per_g, &code, n, target_ratio);
-                    x
-                }));
-            }
-
-            
-
-            for res in rx {
-                if let Some(sres) = res {
-                    wtr.write_record(&[format!("{}",n),format!("{}",sres.k), format!("{}",sres.err.unwrap()),format!("{}",sres.dist.unwrap()),format!("{}",sres.g.unwrap())]).ok();
-                    wtr.flush().ok();
-                }
-                if pool.active_count() == 0 && pool.queued_count() == 0 {
-                    break;
-                }
-            }
-
-
-        }
-
-    }
-
-    
-    
-
-}
 
 pub fn find_max_k_5(n: usize) -> usize{
 
@@ -282,6 +280,58 @@ pub fn conditional_simul(ag_count: Arc<Mutex<HashMap<String,usize>>>, g_lim:usiz
 
 }
 
+pub fn conditional_simul_all_k(ag_count: Arc<Mutex<HashMap<String,usize>>>, g_lim:usize, code: &Vec<usize>, n: usize) -> Option<SimulRes>{
+
+    
+    let code_k = code_k(code, n);
+
+    if (code_k as f64)/(n as f64) >= 0.1 {
+
+        let g = char_str(code,n);
+
+        let mut g_count = ag_count.lock().unwrap();
+
+        
+        if !g_count.contains_key(&g) {
+
+            g_count.insert(g,1);
+
+            drop(g_count);
+
+            return simulate_code(code, n, code_k)
+
+        } else {
+            if let Some(count) = g_count.get_mut(&g) {
+
+                if *count < g_lim {
+                    *count += 1;
+
+                    drop(count);
+                    drop(g_count);
+
+                    return simulate_code(code, n, code_k)
+                } else {
+
+                    drop(count);
+                    drop(g_count);
+
+                    return None
+                }
+            
+            }
+
+            return None
+        }
+
+    } else {
+        None
+    }
+
+
+
+}
+
+
 pub fn conditional_simul_range(ag_count: Arc<Mutex<HashMap<String,usize>>>, g_lim:usize, code: &Vec<usize>, n: usize, target_ratio: f64) -> Option<SimulRes>{
 
     let code_k = code_k(code, n);
@@ -336,28 +386,28 @@ pub fn conditional_simul_range(ag_count: Arc<Mutex<HashMap<String,usize>>>, g_li
 
 pub fn simulate_code(code: &Vec<usize>, n: usize, target_k: usize) -> Option<SimulRes> {
 
+    println!("Started: {:?}",code);
+
     let decoder_builder = EDBuilder::new(0.49);
     let err = get_err(code, n, &decoder_builder);
     let g = char_str(code, n);
     //println!("enter");
-    let dist = min_distance(code,n);
-    println!("{:?}", code);
     //println!("out");
     //let cr = code_cr(code, n);
     
     //let mul = multiplicity(&code, n);
 
-
+    println!("Ended: {:?}",code);
     return Some(SimulRes {
         n,
         k:target_k,
         err: Some(err),
         cr: None,
-        dist: Some(dist),
+        dist: None,
         g: Some(g),
         f: None,
         mul: None,
-        coef: None
+        coef: Some(code.to_vec())
     })
 
 }
@@ -447,7 +497,7 @@ impl Iterator for Poly {
         let w = indexes.len();
 
         
-        if indexes[1] <= n - w + 1 {
+        if indexes[1] <= n - w + 1 { //&& indexes[w-1] < n 
             for i in 2..w {
                 if indexes[i] == n - w + i {
                     indexes[i-1] = indexes[i-1] + 1;

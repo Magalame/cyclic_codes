@@ -12,76 +12,18 @@ use std::collections::HashMap;
 
 fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("Rank functions");
-    //group.sample_size(10);
-    // group.measurement_time(Duration::from_secs(17));
-    let mut tmp_vec = Vec::with_capacity(10);
-    let mut in2 = Vec::with_capacity(10);
-    in2.push(0);
-    in2.push(58);
-    in2.push(59);
-    in2.push(100);
-    in2.push(121);
-    group.bench_function("add_checks", |b| b.iter(||  add_checks(black_box(&vec![0,15,20,28,66]), black_box(&vec![0,58,59,100,121]))));
-    group.bench_function("add_checks_mut", |b| b.iter(|| add_checks_mut(black_box(&vec![0,15,20,28,66]), black_box(&vec![0,58,59,100,121]), &mut tmp_vec)));
+ 
+    let coef_a = vec![0, 2, 4, 6, 12];
+    let n_rows = 30;
+    let a = ParityCheckMatrix::circulant_right(&coef_a,n_rows);
 
-    group.bench_function("test_add", |b| b.iter(||  test_add()));
-    group.bench_function("test_add_mut", |b| b.iter(|| test_add_mut(&mut in2, &mut tmp_vec)));
+    let dec = ErasureDecoder::new(a,0.49);
+    let sim = ClassicalSimulator::new(dec);
 
-    let coef_a = vec![0, 1, 14, 22, 70];
-    let n_rows = 84;
-    let a = ParityCheckMatrix::circulant_right_better(&coef_a,n_rows);
-    let b = ParityCheckMatrix::circulant_right_better(&coef_a,n_rows);
+    group.bench_function("Test simul", |b| b.iter(||  sim.simulate_until_failures_are_found_serial_mut(5)));
 
-    // let decoder_builder = EDBuilder::new(0.49);
-    // let decoder = decoder_builder.from_code(b);
+    println!("rate: {}", sim.simulate_until_failures_are_found_serial_mut(20).failure_rate());
 
-    // let error = decoder.random_error();
-    // let mut work = a.clone();
-    // let mut work2 = a.clone();
-
-    // group.bench_function("keep", |b| b.iter(|| black_box(&a).keep(&error)));
-    // group.bench_function("keep_mut", |b| b.iter(|| black_box(&a).keep_mut(&mut work, &error)));
-    // group.bench_function("keep_mut2", |b| b.iter(|| black_box(&a).keep_mut2(&mut work2, &error)));
-
-    // println!("keep:{:?}",&a.keep(&error));
-    // println!("keep_mut:{:?}",&work);
-    // println!("keep_mut2:{:?}",&work2);
-    
-    // group.bench_function("decoder", |b| b.iter(|| black_box(&decoder).decode(&error)));
-    // group.bench_function("decoder_mut", |b| b.iter(|| black_box(&decoder).decode_mut(&error, &mut work)));
-    
-    // let simulator = ClassicalSimulator::new(decoder);
-    
-    // group.bench_function("serial", |b| b.iter(|| black_box(&simulator).simulate_until_failures_are_found_serial(5).failure_rate()));
-    // group.bench_function("serial_mut", |b| b.iter(|| black_box(&simulator).simulate_until_failures_are_found_serial_mut(5).failure_rate()));
-    
-    let mut work_pcm = a.tmp_rank_pcm();
-    let mut work_pcm2 = a.tmp_rank_pcm();
-
-    let mut tmp_sum: Vec<usize> = Vec::with_capacity(n_rows);
-
-    // group.bench_function("rank", |b| b.iter(|| black_box(&a).rank()));
-    // group.bench_function("rank_mut", |b| b.iter(|| black_box(&a).rank_mut(black_box(&mut work_pcm))));
-    // group.bench_function("rank_mut2", |b| b.iter(|| black_box(&a).rank_mut2(black_box(&mut work_pcm2),black_box(&mut tmp_sum))));
-
-    // println!("{}",a.rank());
-    // println!("{}",a.rank_mut(&mut work_pcm));
-    // println!("{}",a.rank_mut2(&mut work_pcm2, &mut tmp_sum));
-    // println!("{}",a.ranky2());
-    
-    /*
-    group.bench_function("hashmap_insert", |b| b.iter(|| hashmap_insert(black_box(&a))));
-    group.bench_function("vec_insert", |b| b.iter(|| vec_insert(black_box(&a))));
-    
-    group.bench_function("hashmap_add", |b| b.iter(|| hashmap_add(black_box(&a),n_rows)));
-    group.bench_function("vec_add", |b| b.iter(|| vec_add(black_box(&a),n_rows)));
-    
-    */
-
-    
-    // println!("{:?}",repeated_row_add_mut(black_box(&vec![0,15,20,28,66]), black_box(&vec![0,15,20,28,66])));
-    // println!("{:?}",repeated_row_add_mut2(black_box(&vec![0,15,20,28,66]), black_box(&vec![0,15,20,28,66])));
-    // println!("{:?}",repeated_add_mut(black_box(&vec![0,15,20,28,66]), black_box(&vec![0,15,20,28,66])));
     group.finish();
 }
 

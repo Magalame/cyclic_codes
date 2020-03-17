@@ -1023,7 +1023,6 @@ impl ParityCheckMatrix {
 
     pub fn keep_mut(&self, target: &mut ParityCheckMatrix, bits: &[usize]){
         
-
         target.check_ranges.clear();
         target.check_ranges.push(0);
         target.bit_indices.clear();
@@ -1038,7 +1037,6 @@ impl ParityCheckMatrix {
                 .positions()
                 .iter()
                 .filter(|&bit| {
-                    //let found = bits.iter().any(|b| b == bit);
                     let found = binary_search(bits, bit);
                     if found {
                         target.bit_indices.push(*bit);
@@ -1046,10 +1044,6 @@ impl ParityCheckMatrix {
                     }
                     found
                     }).count();
-
-            
-
-            
 
             tot_nb_checks += nb_check;
             target.check_ranges.push(tot_nb_checks);

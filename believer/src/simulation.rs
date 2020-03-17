@@ -49,7 +49,7 @@ where D: Decoder
                         successes
             })
             .sum();
-
+         //println!("nb of successes:{}", successes);
          SimulationResult {
             successes,
             failures: n_failures,
