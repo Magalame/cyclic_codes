@@ -16,7 +16,27 @@ use std::error::Error;
 
 fn main(){
 
-    test_family(93,1);
+    // test_family_fixed(21,5,10);
+    let n = 9;
+    let k = 2;
+    let iter = 20;
+    let ws = vec![2,3,4,5];
+    test_family_across_weight_min_pages(n,k,iter,&ws);
+    //all_first_codes(50);
+    // let mut v = Vec::new();
+    // let n = 5;
+
+    // init(&mut v, 2);
+
+    // println!("{:?}",v);
+
+    // let poly = Poly::new(Some(v),n);
+
+    // for i in poly {
+    //     println!("{:?}",i);
+    // }
+
+
 
 }
 

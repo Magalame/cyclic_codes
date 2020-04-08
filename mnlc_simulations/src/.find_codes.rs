@@ -457,46 +457,6 @@ pub fn error_and_cr_par_random_bicy_k(w: usize, k:usize, n: usize)  {
 
     );
 }
-// pub fn error_and_cr_5_par(n: usize)  {
-
-//     let decoder_builder = EDBuilder::new(0.49);
-//     (1..n-3).into_par_iter().for_each( 
-//         |i_0| {
-//        // println!("Running i0:{}/{}",i_0,n-4);
-//         let mut wtr = csv::Writer::from_path(&format!("/home/nouey/Projects/simul/mnlc_simulations/data/{}_5/i0_{}",n, i_0)).ok().unwrap();
-//             for i_1 in (i_0+1)..(n-2) {
-//                 for i_2 in (i_1+1)..(n-1) {
-//                     for i_3 in (i_2+1)..n {
-//                 //println!("started ({},{})",i_0,i_1);         
-//                 //let start_k = Instant::now();
-//                 let matrix = ParityCheckMatrix::circulant_right_better_5(i_0,i_1,i_2,i_3, n);
-//                 let k = n-matrix.rank();           
-//                 //let duration_k = start_k.elapsed();
-//                 //println!("k:{:?}",duration_k);             
-//                 if k > 0 {
-//                     //println!("k:{},{},{},{}",k,0,i_0,i_1);
-//                     //let start_err = Instant::now();               
-//                     let decoder = decoder_builder.from_code(matrix);
-//                     let simulator = ClassicalSimulator::new(decoder);
-//                     let err_rate = simulator.simulate_until_failures_are_found(1,10).failure_rate();
-//                     //let duration_err = start_err.elapsed();
-//                     //println!("err:{:?}",duration_err);
-//                     //let start_cr = Instant::now();
-//                     let (v1,v2) = poly_to_edgelist_5(i_0,i_1,i_2,i_3,n);
-//                     let cr_nb = cr(&v1,&v2);
-//                     //let duration_cr = start_cr.elapsed();
-//                     //println!("cr:{:?}",duration_cr);
-//                     wtr.write_record(&[format!("{}",cr_nb),format!("{}",k),format!("{}",err_rate) ]).ok();
-//                     //println!("ended ({},{})",i_0,i_1);
-//                 }
-//                     }
-//                 }
-//             }        
-//         wtr.flush().ok();
-//         println!("Finished i0:{}/{}",i_0,n-4);
-//         }
-//     );
-// }
 
 
 pub fn find_max_k_5(n: usize) -> usize{
@@ -660,9 +620,6 @@ pub fn mem_test(){
 
 pub fn all_first_codes_5() {
     
-
-
-    
     let mut wtr = csv::Writer::from_path(&format!("/home/nouey/Projects/simul/mnlc_simulations/data/all_first_codes_5")).ok().unwrap();
 
     for n in 51..500 {
@@ -690,8 +647,9 @@ pub fn all_first_codes_5() {
 
                         for (n0,k0) in shared_codes.iter() {
 
-                            if k%k0 == 0 && n%n0 == 0 {
+                            if k%k0 == 0 && n%n0 == 0 && k/k0 == n/n0{
                                 found = true;
+                                break
                             }
 
                         }

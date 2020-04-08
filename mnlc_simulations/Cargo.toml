@@ -8,6 +8,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 believer =  {version = "0.1", path = "/home/nouey/Projects/simul/believer" }
+pagenumber =  {version = "0.1", path = "/home/nouey/Projects/pagenumber" }
 rand = "0.7.2"
 itertools = "0.8.0"
 rayon = "1.2"

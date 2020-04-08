@@ -12,17 +12,26 @@ use std::collections::HashMap;
 
 fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("Rank functions");
+
+    let code = vec![0, 1, 4, 17, 50];
+
+    let n = 200;
+
+    let m = ParityCheckMatrix::circulant_right_better(&code, n);
+
+    // let m = ParityCheckMatrix::new(vec![vec![0,1,2],
+    //                                     vec![1,2],
+    //                                     vec![1,2]], n);
  
-    let coef_a = vec![0, 2, 4, 6, 12];
-    let n_rows = 30;
-    let a = ParityCheckMatrix::circulant_right(&coef_a,n_rows);
+    let mut m_tmp = m.tmp_rank_pcm();
+    let mut v_tmp = Vec::with_capacity(n);
 
-    let dec = ErasureDecoder::new(a,0.49);
-    let sim = ClassicalSimulator::new(dec);
+    group.bench_function("Test rank_mut", |b| b.iter(||  m.rank_mut2(&mut m_tmp, &mut v_tmp)));
 
-    group.bench_function("Test simul", |b| b.iter(||  sim.simulate_until_failures_are_found_serial_mut(5)));
 
-    println!("rate: {}", sim.simulate_until_failures_are_found_serial_mut(20).failure_rate());
+
+    println!("r:{}",m.rank_mut2(&mut m_tmp, &mut v_tmp));
+    
 
     group.finish();
 }
