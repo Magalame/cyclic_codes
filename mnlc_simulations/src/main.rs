@@ -20,14 +20,11 @@ use std::sync::{Arc, Mutex};
 
 fn main(){
 
-    // let n = 9;
-    // let k = 2;
-    // let iter = 20;
-    // let ws = vec![2,3,4,5];
-    // test_family_across_weight_min_pages(n,k,iter,&ws);
-    let (v1, v2) = poly_to_edgelist_pg(&[0, 4, 6], 8);//0,1,2  3
-
-    println!("{}",HEA(&v2,&v1));
+    let n = 9;
+    let k = 2;
+    let iter = 20;
+    let ws = vec![2,3,4,5];
+    test_family_across_weight_min_pages(n,k,iter,&ws);
 
 
 }

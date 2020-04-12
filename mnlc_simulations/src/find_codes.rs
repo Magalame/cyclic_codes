@@ -20,14 +20,6 @@ use std::sync::mpsc::channel;
 use workerpool::Pool;
 use workerpool::thunk::{Thunk, ThunkWorker};
 
-pub fn init(vec: &mut Vec<usize>, w:usize){
-
-    vec.clear();
-
-    for i in 0..w {
-        vec.push(i);
-    }
-}
 
 pub fn test_family_across_weight_min_pages(n0: usize,k0: usize, iter: usize, ws:&[usize]){
    
@@ -52,12 +44,8 @@ pub fn test_family_across_weight_min_pages(n0: usize,k0: usize, iter: usize, ws:
 
             let g_count: HashMap<String, usize> = HashMap::new();
             let m_g_count = Arc::new(Mutex::new(g_count));
-
             
             let k = k0*i;
-            
-
-            
 
             let mut poly_index: Vec<usize> = Vec::with_capacity(*w);             
 
@@ -68,7 +56,7 @@ pub fn test_family_across_weight_min_pages(n0: usize,k0: usize, iter: usize, ws:
                 n
             };
 
-            let n_workers = 7;
+            let n_workers = 8;
             let mut pool = Pool::<ThunkWorker<()>>::new(n_workers);
 
             let (tx, rx) = channel();
@@ -91,7 +79,6 @@ pub fn test_family_across_weight_min_pages(n0: usize,k0: usize, iter: usize, ws:
 
         }
 
-        // we drain the stuff after each n because we can move on
         m_min_page.with_drain(|(k,simul_res)| {
 
             let simul_res = simul_res.lock().unwrap();
@@ -778,6 +765,15 @@ impl Poly {
             indexes,
             n
         }
+    }
+}
+
+pub fn init(vec: &mut Vec<usize>, w:usize){
+
+    vec.clear();
+
+    for i in 0..w {
+        vec.push(i);
     }
 }
 
