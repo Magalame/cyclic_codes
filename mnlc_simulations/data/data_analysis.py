@@ -91,7 +91,15 @@ k0 = 2
 
 n,k,err,pg = np.loadtxt(open("min_page/fam_n0:"+str(n0)+"_k0:"+str(k0)+"_min_pg"), delimiter=',', usecols=(0,1,2,3), unpack=True,skiprows=0)
 
-plt.scatter(n,np.log10(err),c=np.log(np.divide(pg,n)),cmap="rainbow") 
+plt.xlabel("Number of bits $n$")
+plt.ylabel("$log_{10}(err)$")
+plt.title("Code family with $\dfrac{k}{n} = \dfrac{"+str(k0)+"}{"+str(n0)+"}$")
+plt.scatter(n,np.log10(err),c=pg,cmap="rainbow") # for cr
+# plt.scatter(n,np.log10(err),c=pg,cmap="rainbow") #for pg
+
+cbar = plt.colorbar()
+cbar.set_label('minimal crossing number', rotation=270, labelpad=15)
+
 plt.show()
 
 # n0 = 17

@@ -1,84 +1,36 @@
-use believer::{ParityCheckMatrix,add_checks,add_checks_mut};
-use believer::{CSSEDBuilder,EDBuilder,ClassicalSimulator,DecoderBuilder,Simulator};
-use std::time::{Duration, Instant};
+use believer::{ParityCheckMatrix};
 
-use rayon::prelude::*;
-use crate::graphs::*;
-use crate::qc::*;
-use crate::flint::*;
+use std::cmp::Eq;
+use std::hash::Hash;
+
+use pagenumber::HEA;
 
 use std::cmp::Ordering::*;
 
 use mnlc_simulations::*;
-use std::error::Error;
+use std::collections::HashMap;
+
+
+use std::sync::{Arc, Mutex};
+
 
 //51, 54,
 
+
+
 fn main(){
 
-    // test_family_fixed(21,5,10);
-    let n = 9;
-    let k = 2;
-    let iter = 20;
-    let ws = vec![2,3,4,5];
-    test_family_across_weight_min_pages(n,k,iter,&ws);
-    //all_first_codes(50);
-    // let mut v = Vec::new();
-    // let n = 5;
+    // let n = 9;
+    // let k = 2;
+    // let iter = 20;
+    // let ws = vec![2,3,4,5];
+    // test_family_across_weight_min_pages(n,k,iter,&ws);
+    let (v1, v2) = poly_to_edgelist_pg(&[0, 4, 6], 8);//0,1,2  3
 
-    // init(&mut v, 2);
-
-    // println!("{:?}",v);
-
-    // let poly = Poly::new(Some(v),n);
-
-    // for i in poly {
-    //     println!("{:?}",i);
-    // }
-
+    println!("{}",HEA(&v2,&v1));
 
 
 }
-
-pub fn binary_search(data: &[usize], target: &usize) -> bool {
-
-    if target < &data[0] {
-        return false
-    }
-
-    let mut high = data.len()-1;
-    let mut low = 0;
-    
- 
-    while low <= high {
-        let mid = (low + high) / 2;
-
-        match data[mid].cmp(target) {
-            Less => low = mid + 1,
-            Greater => high = mid - 1,
-            Equal => return true,
-        };
-    }
-    return false
-}
-
-
-// pub fn binary_search(data: &[usize], target: &usize) -> bool {
-//     let mut high = data.len();
-//     let mut low = 0;
-//     let mut mid = high / 2;
- 
-//     while low < high {
-//         match target.cmp(&data[mid]) {
-//             Less => high = mid - 1,
-//             Greater => low = mid + 1,
-//             Equal => return true,
-//         };
-//         mid = (high + low) / 2;
-//     }
-//     return false
-// }
-
 
 
 

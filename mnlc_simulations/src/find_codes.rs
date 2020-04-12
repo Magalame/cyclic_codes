@@ -6,11 +6,15 @@ use crate::qc::*;
 use crate::flint::*;
 use std::ops::Range;
 use std::time::{Duration, Instant};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use gcd::Gcd;
 use std::collections::HashSet;
 use std::collections::HashMap;
+use std::collections::hash_map::Drain;
 use pagenumber::*;
+
+use std::cmp::Eq;
+use std::hash::Hash;
 
 use std::sync::mpsc::channel;
 use workerpool::Pool;
@@ -29,7 +33,9 @@ pub fn test_family_across_weight_min_pages(n0: usize,k0: usize, iter: usize, ws:
    
     let lim_per_g = 5;
 
-    let m_min_page = Arc::new(Mutex::new(HashMap::new()));
+    let min_page = HashMap::new();
+
+    let m_min_page = SharedHashMap::new(min_page);
 
     let mut wtr = csv::Writer::from_path(&format!("/home/nouey/Projects/simul/mnlc_simulations/data/min_page/fam_n0:{}_k0:{}_min_pg",n0,k0)).ok().unwrap();
 
@@ -71,7 +77,7 @@ pub fn test_family_across_weight_min_pages(n0: usize,k0: usize, iter: usize, ws:
 
             for code in poly {
                 let a_g_count = Arc::clone(&m_g_count);
-                let a_min_page = Arc::clone(&m_min_page);
+                let a_min_page = m_min_page.clone();
                 pool.execute_to(tx.clone(), Thunk::of(move ||{
                     conditional_simul_min_page(a_g_count, a_min_page, lim_per_g, &code, n, k);
                 })); 
@@ -85,45 +91,22 @@ pub fn test_family_across_weight_min_pages(n0: usize,k0: usize, iter: usize, ws:
 
         }
 
-        //we drain the stuff after each n because we can move on
-        for (_,res) in m_min_page.lock().unwrap().drain() {
+        // we drain the stuff after each n because we can move on
+        m_min_page.with_drain(|(k,simul_res)| {
 
-            wtr.write_record(&[format!("{}",res.n),format!("{}",res.k), format!("{}",res.err.unwrap()),format!("{}",res.cr.unwrap()),format!("{}",res.g.as_ref().unwrap()),format!("{:?}",res.coef.as_ref().unwrap())]).ok();
+            let simul_res = simul_res.lock().unwrap();
+            println!("before");
+            wtr.write_record(&[format!("{}",simul_res.n),format!("{}",simul_res.k), format!("{}",simul_res.err.expect("no err")),format!("{}",simul_res.cr.expect("no cr")),format!("{}",simul_res.g.as_ref().expect("no g")),format!("{:?}",simul_res.coef.as_ref().expect("no coef"))]).ok();
+            println!("after");
             wtr.flush().ok();
-
         }
+
+        );
 
     }
 
     
 
-    // let mut writers: HashMap<(usize, usize), csv::Writer<std::fs::File>> = HashMap::new();
-
-    // 'next_res: for res in m_min_page.lock().unwrap().values() {
-    //     let n = res.n;
-    //     let k = res.k;
-
-    //     for ((n0,k0),ref mut wtr) in writers.iter_mut() {
-    //         if (*k0 as f64 / *n0 as f64) == (k as f64 / n as f64) {
-
-    //             wtr.write_record(&[format!("{}",n),format!("{}",k), format!("{}",res.err.unwrap()),format!("{}",res.cr.unwrap()),format!("{}",res.g.as_ref().unwrap()),format!("{:?}",res.coef.as_ref().unwrap())]).ok();
-    //             wtr.flush().ok();
-
-
-    //             continue 'next_res;
-
-    //         }
-    //     }
-
-    //     // if didn't catch anything, means it hasn't been written yet, so:
-
-    //     let mut wtr = csv::Writer::from_path(&format!("/home/nouey/Projects/simul/mnlc_simulations/data/min_page/fam_n0:{}_k0:{}_min_pg",n,k)).ok().unwrap();
-    //     wtr.write_record(&[format!("{}",n),format!("{}",k), format!("{}",res.err.unwrap()),format!("{}",res.cr.unwrap()),format!("{}",res.g.as_ref().unwrap()),format!("{:?}",res.coef.as_ref().unwrap())]).ok();
-    //     wtr.flush().ok();
-    //     writers.insert((n,k), wtr);
-
-    // }
-    
 
 }
 
@@ -392,7 +375,7 @@ pub fn conditional_simul(ag_count: Arc<Mutex<HashMap<String,usize>>>, g_lim:usiz
 
 }
 
-pub fn conditional_simul_min_page(ag_count: Arc<Mutex<HashMap<String,usize>>>,amin_page: Arc<Mutex<HashMap<String, SimulRes>>>, g_lim:usize, code: &Vec<usize>, n: usize, k: usize){
+pub fn conditional_simul_min_page(ag_count: Arc<Mutex<HashMap<String,usize>>>,amin_page: SharedHashMap<String, SimulRes>, g_lim:usize, code: &Vec<usize>, n: usize, k: usize){
 
     let actual_k = code_k(code, n);
 
@@ -416,67 +399,93 @@ pub fn conditional_simul_min_page(ag_count: Arc<Mutex<HashMap<String,usize>>>,am
                     // let new_pg = cr(&v1, &v2);
 
                     let (edges, vertices) = poly_to_edgelist_pg(code,n);
-
                     let new_pg = HEA(&vertices, &edges);
 
-                    let mut min_page = amin_page.lock().unwrap();
+                    let simul_res = amin_page.get(&g).expect(&format!("g {:?} not found in simul_res HashMap",&g));
+                    let mut simul_res = simul_res.lock().unwrap();
 
-                    let cur_min_pg = min_page.get(&g).expect(&format!("g {:?} not found in min_page HashMap",&g)).cr.expect("No cr found in SimulRes struct");
-
-                    println!("for g:{}, cur page:{}",g,cur_min_pg);
-
-                    println!("new_pg:{}, old_pg:{}",new_pg,cur_min_pg);
-
-                    if new_pg < cur_min_pg {
-                        let res = min_page.get_mut(&g).unwrap();
-                        res.cr = Some(new_pg);
+                    if let Some(cur_min_pg) = simul_res.cr {
+                        if new_pg < cur_min_pg {
+                            simul_res.cr = Some(new_pg);
+                            simul_res.coef = Some(code.to_owned());
+                        }
+                    } else {
+                        simul_res.cr = Some(new_pg);
+                        simul_res.coef = Some(code.to_owned());
                     }
+                    // println!("for g:{}, cur page:{}",g,cur_min_pg);
 
-                    let cur_min_pg = min_page.get(&g).expect(&format!("g {:?} not found in min_page HashMap",&g)).cr.expect("No cr found in SimulRes struct");
+                    // println!("new_pg:{}, old_pg:{}",new_pg,cur_min_pg);
 
-                    println!("new cur:{}",cur_min_pg);
+                    
+
+                    // println!("new cur:{}",simul_res.cr.unwrap());
             }
 
         } else { 
 
-            let g2 = g.clone();
-
-            let mut min_page = amin_page.lock().unwrap();
-
-            g_count.insert(g,1);
+            g_count.insert(g.clone(),1);
 
             drop(g_count);
 
-            // println!("not found before");
+            let simul_res = amin_page.get(&g);
 
-
-            if !min_page.contains_key(&g2) {
-
-                let res = simulate_code(code, n, k);
-                min_page.insert(g2,res);  
-
-            } else {
+            if let Some(simul_res) = simul_res {
 
                 let (edges, vertices) = poly_to_edgelist_pg(code,n);
 
                 let new_pg = HEA(&vertices, &edges);
 
-                let cur_min_pg = min_page.get(&g2).expect(&format!("g {:?} not found in min_page HashMap",&g2)).cr.expect("No cr found in SimulRes struct");
+                let mut simul_res = simul_res.lock().unwrap();
 
-                if new_pg < cur_min_pg {
-                    let res = min_page.get_mut(&g2).unwrap();
-                    res.cr = Some(new_pg);
+                if let Some(cur_min_pg) = simul_res.cr {
+                    if new_pg < cur_min_pg {
+                        simul_res.cr = Some(new_pg);
+                        simul_res.coef = Some(code.to_owned());
+                    }
+                } else {
+                    simul_res.cr = Some(new_pg);
+                    simul_res.coef = Some(code.to_owned());
+                }
+                
+
+            } else {
+
+                amin_page.insert(g.clone(),SimulRes::empty());
+
+                let res = simulate_code(code, n, k); // we simulate the code
+
+                let simul_res = amin_page.get(&g).unwrap();
+                let mut simul_res = simul_res.lock().unwrap();
+
+                if let Some(cr) = simul_res.cr { //since during the simulation time, something might have been written, we need to check we never overwrite
+                  
+                  simul_res.n = n;
+                  simul_res.k = k;
+                  simul_res.g = Some(g.clone());
+                  simul_res.coef = Some(code.to_owned());
+                  simul_res.err = res.err; // this part will always be needed
+
+                  if res.cr < simul_res.cr {
+                      simul_res.cr = res.cr;
+                      simul_res.coef = Some(code.to_owned());
+                  }
+
+                } else {
+                    *simul_res = res;  
                 }
 
+                
+                
             }
+
 
                       
 
 
         } 
     
-    } else {
-    }
+    } 
 
 }
 
@@ -595,10 +604,11 @@ pub fn simulate_code(code: &Vec<usize>, n: usize, target_k: usize) -> SimulRes {
     println!("Started: {:?}, g:{}",code,g);
 
     // println!("{},{:?}",n,code);
-    let (v1, v2) = poly_to_edgelist(code,n);
-    // println!("v:{:?}\ne:{:?}",vertices,edges);
-    // println!("st {:?}",code);
-    let cr = cr(&v1, &v2);
+    // let (v1, v2) = poly_to_edgelist(code,n);
+    // let cr = cr(&v1, &v2);
+    let (edges, vertices) = poly_to_edgelist_pg(code,n);
+
+    let cr = HEA(&vertices, &edges);
     // println!("ed {:?}",code);
     //println!("enter");
     //println!("out");
@@ -807,37 +817,43 @@ impl Iterator for Poly {
     }
 }
 
+pub struct SharedHashMap<K: Hash + Eq,V>{
+    a_hashmap: Arc<Mutex<HashMap<K,Arc<Mutex<V>>>>>
+}
 
-// impl Iterator for Poly {
-//     type Item = Vec<usize>;
+impl <K: Hash + Eq,V> SharedHashMap<K,V>{
+    fn new(hashmap: HashMap<K, Arc<Mutex<V>>>) -> Self {
+        Self{
+            a_hashmap: Arc::new(Mutex::new(hashmap))
+        }
+    }
 
-//     fn next(&mut self) -> Option<Self::Item> {
-//         let n = self.n;
-//         let indexes = self.indexes.as_mut().unwrap();
-//         let w = indexes.len();
+    fn get(&self, k:&K) -> Option<Arc<Mutex<V>>> {
+        let m_h = &self.a_hashmap.lock().unwrap();
+        let value = m_h.get(k);
+        if let Some(refr) = value {
+            Some(Arc::clone(refr))
+        } else {
+            None
+        }
+    }
 
-        
-//         if indexes[1] <= n - w + 1 { //&& indexes[w-1] < n 
-//             for i in 2..w {
-//                 if indexes[i] == n - w + i {
-//                     indexes[i-1] = indexes[i-1] + 1;
-//                     indexes[i] = indexes[i-1] + 1;
+    fn insert(&self, k:K, v: V) {
+        let mut m_h = self.a_hashmap.lock().unwrap();
+        m_h.insert(k,Arc::new(Mutex::new(v)));
+    }
 
-//                     for j in (i + 1)..w {
-//                         indexes[j] = indexes[i] + j - i;
-//                     }
+    fn clone(&self) -> Self {
+        Self {
+            a_hashmap: Arc::clone(&self.a_hashmap)
+        }
+    }
 
-//                     break;
-//                 } else if i == w-1 {
-//                     indexes[i] = indexes[i] + 1;
-//                 }
-//             }
+    fn with_drain<F>(&self, mut func: F) 
+    where F: FnMut((K,Arc<Mutex<V>>))
+    {
+        let mut m_h = self.a_hashmap.lock().unwrap();
+        m_h.drain().map(|(k,v)| func((k,v)) ).count();
+    }
 
-//             Some(indexes.clone())
-//         } else {
-//             None
-//         }
-
-        
-//     }
-// }
+}
